@@ -1,0 +1,102 @@
+name: 🛠️ Development Workflow
+
+on:
+  push:
+    branches: [develop, feature/*]
+  pull_request:
+    branches: [develop]
+
+env:
+  NODE_VERSION: 18.x
+
+jobs:
+  # Fast feedback loop for development
+  quick-check:
+    name: ⚡ Quick Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Quick lint
+        run: npm run lint
+      
+      - name: Quick typecheck
+        run: npm run typecheck
+      
+      - name: Quick test (no coverage)
+        run: npm test -- --reporter=basic
+
+  # Build development version
+  dev-build:
+    name: 🏗️ Development Build
+    needs: [quick-check]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build development version
+        run: npm run build
+      
+      - name: Copy manifest and assets
+        run: |
+          cp public/manifest.json dist/
+          cp -r icons dist/
+      
+      - name: Create dev package
+        run: |
+          cd dist
+          zip -r ../faf-extension-dev.zip .
+      
+      - name: Upload dev build
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-dev-build
+          path: faf-extension-dev.zip
+          retention-days: 7
+
+  # Auto-fix formatting issues
+  auto-fix:
+    name: 🔧 Auto-fix Issues
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Auto-fix lint issues
+        run: npm run lint:fix || true
+      
+      - name: Auto-format code
+        run: npm run format || true
+      
+      - name: Commit fixes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add -A
+          git diff --staged --quiet || git commit -m "🤖 Auto-fix lint and formatting issues"
+          git push || true

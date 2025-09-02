@@ -1,0 +1,235 @@
+name: 🚪 Quality Gates
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  NODE_VERSION: 18.x
+  
+  # Quality Gate Thresholds
+  MIN_COVERAGE: 80
+  MAX_BUNDLE_SIZE: 500KB
+  MAX_BUILD_TIME: 300  # seconds
+
+jobs:
+  # Coverage Gate
+  coverage-gate:
+    name: 📊 Coverage Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run coverage
+        run: npm run test:coverage
+      
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Current coverage: $COVERAGE%"
+          echo "Required coverage: $MIN_COVERAGE%"
+          
+          if (( $(echo "$COVERAGE < $MIN_COVERAGE" | bc -l) )); then
+            echo "❌ Coverage $COVERAGE% is below threshold $MIN_COVERAGE%"
+            exit 1
+          else
+            echo "✅ Coverage gate passed: $COVERAGE%"
+          fi
+
+  # Performance Gate
+  performance-gate:
+    name: ⚡ Performance Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build with timing
+        run: |
+          START_TIME=$(date +%s)
+          npm run build:prod
+          END_TIME=$(date +%s)
+          BUILD_TIME=$((END_TIME - START_TIME))
+          
+          echo "Build time: ${BUILD_TIME}s"
+          echo "Max allowed: ${MAX_BUILD_TIME}s"
+          
+          if [ $BUILD_TIME -gt $MAX_BUILD_TIME ]; then
+            echo "❌ Build time ${BUILD_TIME}s exceeds limit ${MAX_BUILD_TIME}s"
+            exit 1
+          else
+            echo "✅ Performance gate passed: ${BUILD_TIME}s"
+          fi
+      
+      - name: Check bundle size
+        run: |
+          cp public/manifest.json dist/
+          cp -r icons dist/
+          
+          # Calculate total size
+          TOTAL_SIZE=$(du -sb dist/ | cut -f1)
+          TOTAL_SIZE_KB=$((TOTAL_SIZE / 1024))
+          MAX_SIZE_KB=$(echo $MAX_BUNDLE_SIZE | sed 's/KB//')
+          
+          echo "Bundle size: ${TOTAL_SIZE_KB}KB"
+          echo "Max allowed: ${MAX_SIZE_KB}KB"
+          
+          if [ $TOTAL_SIZE_KB -gt $MAX_SIZE_KB ]; then
+            echo "❌ Bundle size ${TOTAL_SIZE_KB}KB exceeds limit ${MAX_SIZE_KB}KB"
+            exit 1
+          else
+            echo "✅ Bundle size gate passed: ${TOTAL_SIZE_KB}KB"
+          fi
+
+  # TypeScript Strictness Gate
+  typescript-gate:
+    name: 📝 TypeScript Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Verify strict mode compliance
+        run: |
+          # Check tsconfig.json for strict settings
+          STRICT_SETTINGS=(
+            "strict"
+            "noImplicitAny" 
+            "strictNullChecks"
+            "noImplicitReturns"
+            "noUnusedLocals"
+            "noUnusedParameters"
+          )
+          
+          for setting in "${STRICT_SETTINGS[@]}"; do
+            if ! grep -q "\"$setting\": true" tsconfig.json; then
+              echo "❌ Required TypeScript setting '$setting' is not enabled"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All strict TypeScript settings are enabled"
+      
+      - name: Type check with strict settings
+        run: npm run typecheck
+
+  # Linting Gate
+  lint-gate:
+    name: 🧹 Lint Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linting
+        run: npm run lint
+      
+      - name: Check for TODO/FIXME comments in main branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          TODO_COUNT=$(find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec grep -l "TODO\|FIXME\|XXX" {} \; | wc -l)
+          
+          if [ $TODO_COUNT -gt 0 ]; then
+            echo "❌ Found $TODO_COUNT files with TODO/FIXME comments in main branch"
+            find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec grep -Hn "TODO\|FIXME\|XXX" {} \;
+            exit 1
+          else
+            echo "✅ No TODO/FIXME comments found in main branch"
+          fi
+
+  # Security Gate
+  security-gate:
+    name: 🔒 Security Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Security audit
+        run: |
+          # Run npm audit and capture output
+          if ! npm audit --audit-level high; then
+            echo "❌ High-severity vulnerabilities found"
+            exit 1
+          else
+            echo "✅ No high-severity vulnerabilities found"
+          fi
+      
+      - name: Check for sensitive data patterns
+        run: |
+          SENSITIVE_PATTERNS=(
+            "password"
+            "secret"
+            "token"
+            "key.*=.*['\"][^'\"]{20,}"
+            "api.*key"
+          )
+          
+          for pattern in "${SENSITIVE_PATTERNS[@]}"; do
+            if find src -type f -name "*.ts" -o -name "*.tsx" | xargs grep -i "$pattern" | grep -v "// safe:" ; then
+              echo "⚠️  Potential sensitive data pattern found: $pattern"
+              echo "Add '// safe: reason' comment if this is intentional"
+            fi
+          done
+
+  # Final Gate Summary
+  gate-summary:
+    name: 📋 Quality Gates Summary
+    needs: [coverage-gate, performance-gate, typescript-gate, lint-gate, security-gate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Quality Gates Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Gate | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage | ${{ needs.coverage-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance | ${{ needs.performance-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| TypeScript | ${{ needs.typescript-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Linting | ${{ needs.lint-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security-gate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Fail if any gate failed
+        if: |
+          needs.coverage-gate.result != 'success' ||
+          needs.performance-gate.result != 'success' ||
+          needs.typescript-gate.result != 'success' ||
+          needs.lint-gate.result != 'success' ||
+          needs.security-gate.result != 'success'
+        run: |
+          echo "❌ One or more quality gates failed"
+          exit 1

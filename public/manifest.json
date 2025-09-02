@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "FAF - Fast AF",
+  "version": "1.0.0",
+  "description": "Extract perfect AI context in 0.3s. Stop FAFfing About.",
+  
+  "icons": {
+    "16": "icons/social-logo-16.png",
+    "32": "icons/social-logo-32.png",
+    "48": "icons/social-logo-48.png",
+    "128": "icons/social-logo-128.png"
+  },
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/social-logo-16.png",
+      "32": "icons/social-logo-32.png"
+    },
+    "default_title": "FAF - Click for instant AI context ⚡️"
+  },
+  
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  
+  "permissions": [
+    "activeTab",
+    "storage",
+    "notifications",
+    "scripting"
+  ],
+  
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  
+  "commands": {
+    "extract-context": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "Command+Shift+F"
+      },
+      "description": "Extract AI context instantly"
+    }
+  },
+  
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

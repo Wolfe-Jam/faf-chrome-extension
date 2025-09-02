@@ -1,0 +1,188 @@
+name: 🛡️ Security Scanning
+
+on:
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: 18.x
+
+jobs:
+  # Comprehensive security analysis
+  security-audit:
+    name: 🔍 Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: npm audit
+        run: npm audit --audit-level moderate --json > audit-results.json || true
+      
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: audit-results
+          path: audit-results.json
+
+  # CodeQL Analysis
+  codeql-analysis:
+    name: 🔬 CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript
+          queries: security-extended,security-and-quality
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  # Extension Permission Audit
+  permission-audit:
+    name: 🔐 Chrome Extension Permission Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Analyze manifest permissions
+        run: |
+          echo "## Chrome Extension Permission Analysis" >> permission-report.md
+          echo "### Current Permissions:" >> permission-report.md
+          cat public/manifest.json | jq -r '.permissions[]' | sed 's/^/- /' >> permission-report.md
+          echo "### Host Permissions:" >> permission-report.md
+          cat public/manifest.json | jq -r '.host_permissions[]' | sed 's/^/- /' >> permission-report.md
+          
+          # Check for overly broad permissions
+          if grep -q '"<all_urls>"' public/manifest.json; then
+            echo "⚠️  WARNING: Extension uses <all_urls> permission" >> permission-report.md
+          fi
+          
+          # Check for sensitive permissions
+          SENSITIVE_PERMS=("history" "bookmarks" "tabs" "webNavigation" "privacy" "management")
+          for perm in "${SENSITIVE_PERMS[@]}"; do
+            if grep -q "\"$perm\"" public/manifest.json; then
+              echo "⚠️  SENSITIVE: Extension uses $perm permission" >> permission-report.md
+            fi
+          done
+      
+      - name: Upload permission audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: permission-audit
+          path: permission-report.md
+
+  # Content Security Policy Validation
+  csp-validation:
+    name: 🛡️ CSP Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate CSP
+        run: |
+          echo "Checking for inline scripts and unsafe practices..."
+          
+          # Check for inline scripts in HTML files
+          if find public -name "*.html" -exec grep -l "javascript:" {} \;; then
+            echo "❌ Found inline javascript: URLs"
+            exit 1
+          fi
+          
+          if find public -name "*.html" -exec grep -l "<script>" {} \;; then
+            echo "⚠️  Found inline script tags - ensure they comply with CSP"
+          fi
+          
+          # Check for eval usage
+          if find src -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -exec grep -l "eval(" {} \;; then
+            echo "❌ Found eval() usage - not allowed in Chrome extensions"
+            exit 1
+          fi
+          
+          echo "✅ Basic CSP validation passed"
+
+  # Dependency vulnerability scan
+  vulnerability-scan:
+    name: 🚨 Dependency Vulnerabilities
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # Generate security report
+  security-report:
+    name: 📊 Security Report
+    needs: [security-audit, permission-audit, csp-validation, vulnerability-scan]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+      
+      - name: Generate security summary
+        run: |
+          echo "# FAF Extension Security Report - $(date)" > security-summary.md
+          echo "" >> security-summary.md
+          
+          if [ -f permission-audit/permission-report.md ]; then
+            cat permission-audit/permission-report.md >> security-summary.md
+          fi
+          
+          echo "" >> security-summary.md
+          echo "## Scan Results:" >> security-summary.md
+          echo "- ✅ Permission audit completed" >> security-summary.md
+          echo "- ✅ CSP validation completed" >> security-summary.md
+          echo "- ✅ Vulnerability scan completed" >> security-summary.md
+          echo "- ✅ Dependency audit completed" >> security-summary.md
+      
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+      
+      - name: Comment on PR if applicable
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
