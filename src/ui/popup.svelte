@@ -2,6 +2,7 @@
   import type { ExtractionResult } from '@/core/types';
   import { getBadgeColors, getScoreValue } from '@/core/types';
   import { ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
+  import { DownloadsManager } from '@/adapters/downloads';
   import { telemetry } from '@/core/telemetry';
   import { onMount } from 'svelte';
 
@@ -151,6 +152,34 @@
     }
   }
 
+  // Handle download action
+  async function handleDownload() {
+    if (!lastExtraction?.faf) return;
+
+    try {
+      await DownloadsManager.downloadFafFile(lastExtraction.faf);
+
+      // Track download action
+      telemetry.track('user_action', {
+        action: 'download_faf_file',
+        platform: lastExtraction.faf.metadata?.platform,
+        score: lastExtraction.faf.score
+      });
+
+      // Show temporary success message
+      const originalText = document.querySelector('.download-button')?.textContent;
+      const button = document.querySelector('.download-button');
+      if (button) {
+        button.textContent = '✓ Downloaded!';
+        setTimeout(() => {
+          button.textContent = originalText || '⬇️ Download';
+        }, 2000);
+      }
+    } catch (err) {
+      error = 'Failed to download FAF file';
+    }
+  }
+
   // Format file size
   function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes}B`;
@@ -216,9 +245,14 @@
           {/if}
         </div>
 
-        <button class="copy-button" on:click={handleCopy}>
-          Copy FAF
-        </button>
+        <div class="action-buttons">
+          <button class="copy-button" on:click={handleCopy}>
+            📋 Copy FAF
+          </button>
+          <button class="download-button" on:click={handleDownload}>
+            ⬇️ Download
+          </button>
+        </div>
       </div>
     {:else if !error}
       <div class="empty-state">
@@ -448,8 +482,41 @@
     margin-bottom: 12px;
   }
 
+  .action-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .copy-button, .download-button {
+    flex: 1;
+    font-size: 11px;
+    font-weight: 500;
+  }
+
   .copy-button:hover {
     background: #e5e7eb;
+  }
+
+  .download-button {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #22c55e;
+    color: white;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+    transition: background-color 0.2s;
+  }
+
+  .download-button:hover {
+    background: #16a34a;
+  }
+
+  .download-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   footer {

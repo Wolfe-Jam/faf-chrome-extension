@@ -38,7 +38,8 @@
     "storage",
     "notifications",
     "scripting",
-    "clipboardWrite"
+    "clipboardWrite",
+    "downloads"
   ],
   
   "host_permissions": [
