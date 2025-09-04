@@ -62,35 +62,35 @@
         source: 'popup'
       };
 
-      // Try to send message, and if it fails, inject the content script programmatically
+      // First, always try to inject the content script to ensure it's loaded
+      // This handles cases where manifest injection failed or page was already loaded
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          files: ['content.js']
+        });
+        
+        // Small delay to ensure script initializes
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (injectErr) {
+        // Injection might fail if script is already injected, that's okay
+        console.log('Content script injection attempted:', injectErr.message);
+      }
+      
+      // Now try to send the message
       let response;
       try {
         response = await chrome.tabs.sendMessage(activeTab.id, message);
       } catch (err) {
-        // Handle Chrome messaging errors by injecting content script
-        if (err.message?.includes('Could not establish connection') || 
-            err.message?.includes('Receiving end does not exist')) {
-          
-          console.log('Content script not ready, injecting programmatically...');
-          
-          // Inject the content script
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: activeTab.id },
-              files: ['content.js']
-            });
-            
-            // Wait a moment for script to initialize
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Try the message again
-            response = await chrome.tabs.sendMessage(activeTab.id, message);
-          } catch (injectError) {
-            console.error('Failed to inject content script:', injectError);
-            throw new Error('Unable to inject content script. Please refresh the page and try again.');
-          }
-        } else {
-          throw err;
+        // If still failing, try one more time with a longer delay
+        console.log('First message failed, retrying with delay...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        try {
+          response = await chrome.tabs.sendMessage(activeTab.id, message);
+        } catch (finalErr) {
+          console.error('All communication attempts failed:', finalErr);
+          throw new Error('Unable to communicate with page. Please refresh and try again.');
         }
       }
 
