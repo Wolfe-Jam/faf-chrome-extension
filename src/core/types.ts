@@ -13,7 +13,7 @@ export const BRAND_COLORS = {
   black: '#0A0A0A'
 } as const;
 
-export const CONFIDENCE_LEVELS = ['high', 'medium', 'low'] as const;
+export const CONFIDENCE_LEVELS = ['VERY_HIGH', 'HIGH', 'GOOD', 'MODERATE', 'LOW'] as const;
 export type ConfidenceLevel = typeof CONFIDENCE_LEVELS[number];
 
 export interface BadgeColorConfig {
@@ -22,9 +22,11 @@ export interface BadgeColorConfig {
 }
 
 export const BADGE_COLORS: Record<ConfidenceLevel, BadgeColorConfig> = {
-  high: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },    // 80-100%
-  medium: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },   // 50-79%
-  low: { bg: BRAND_COLORS.black, text: BRAND_COLORS.orange }     // 0-49%
+  VERY_HIGH: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },
+  HIGH: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },
+  GOOD: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
+  MODERATE: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
+  LOW: { bg: BRAND_COLORS.black, text: BRAND_COLORS.orange }
 } as const;
 
 export type Score = number & { readonly __brand: 'Score' };
@@ -132,7 +134,9 @@ export const MESSAGE_TYPES = [
   'CONTEXT_EXTRACTED', 
   'COPY_TO_CLIPBOARD',
   'UPDATE_BADGE',
-  'ERROR'
+  'ERROR',
+  'PING',
+  'PONG'
 ] as const;
 
 export type MessageType = typeof MESSAGE_TYPES[number];
@@ -188,12 +192,68 @@ export function isValidScore(value: number): value is Score {
 
 export function getConfidenceLevel(score: Score): ConfidenceLevel {
   const value = getScoreValue(score);
-  if (value >= 80) return 'high';
-  if (value >= 50) return 'medium';
-  return 'low';
+  if (value >= 90) return 'VERY_HIGH';
+  if (value >= 80) return 'HIGH';
+  if (value >= 70) return 'GOOD';
+  if (value >= 60) return 'MODERATE';
+  return 'LOW';
 }
 
 export function getBadgeColors(score: Score): BadgeColorConfig {
   const confidence = getConfidenceLevel(score);
   return BADGE_COLORS[confidence];
+}
+
+export interface FafData {
+  readonly project?: {
+    readonly name?: string;
+    readonly goal?: string;
+    readonly main_language?: string;
+  };
+  readonly stack?: {
+    readonly frontend?: string;
+    readonly css_framework?: string;
+    readonly ui_library?: string;
+    readonly state_management?: string;
+    readonly backend?: string;
+    readonly runtime?: string;
+    readonly database?: string;
+    readonly build?: string;
+    readonly package_manager?: string;
+    readonly api_type?: string;
+    readonly hosting?: string;
+    readonly cicd?: string;
+  };
+  readonly human_context?: {
+    readonly who?: string;
+    readonly what?: string;
+    readonly why?: string;
+    readonly where?: string;
+    readonly when?: string;
+    readonly how?: string;
+  };
+  readonly ai_score?: number | string;
+  readonly ai_scoring_system?: string;
+  readonly ai_scoring_details?: {
+    readonly filled_slots?: number;
+    readonly total_slots?: number;
+  };
+}
+
+export interface SectionScore {
+  readonly percentage: number;
+  readonly filled: number;
+  readonly total: number;
+  readonly missing: readonly string[];
+}
+
+export type Confidence = 'LOW' | 'MODERATE' | 'GOOD' | 'HIGH' | 'VERY_HIGH';
+
+export interface FafScore {
+  readonly totalScore: number;
+  readonly filledSlots: number;
+  readonly totalSlots: number;
+  readonly sectionScores: Readonly<Record<string, SectionScore>>;
+  readonly suggestions: readonly string[];
+  readonly confidence: Confidence;
 }

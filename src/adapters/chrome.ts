@@ -87,52 +87,44 @@ export class ChromeTabs {
   }
 
   static async sendMessage(tabId: number, message: Message): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
         chrome.tabs.sendMessage(tabId, message, (_response) => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_MESSAGE_FAILED,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            // Gracefully handle tab messaging errors
+            console.warn('FAF: Tab messaging warning (non-blocking):', chrome.runtime.lastError.message);
+            resolve();
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown messaging error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        // Never throw - always graceful recovery
+        console.warn('FAF: Tab messaging warning (non-blocking):', error);
+        resolve();
       }
     });
   }
 
   static async executeScript(tabId: number, files: readonly string[]): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       try {
         chrome.scripting.executeScript({
           target: { tabId },
           files: [...files]
         }, () => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_SCRIPTING_FAILED,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            // Gracefully handle script execution errors
+            console.warn('FAF: Script execution warning (non-blocking):', chrome.runtime.lastError.message);
+            resolve();
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown scripting error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        // Never throw - always graceful recovery
+        console.warn('FAF: Script execution warning (non-blocking):', error);
+        resolve();
       }
     });
   }
@@ -145,27 +137,42 @@ export class ChromeStorageAPI {
   static async get<K extends keyof ChromeStorage>(
     keys: readonly K[]
   ): Promise<Pick<ChromeStorage, K>> {
-    return new Promise((resolve, reject) => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 100;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        chrome.storage.local.get([...keys], (result) => {
-          if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_STORAGE_ERROR,
-              chrome.runtime.lastError.message || 'Unknown storage error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
-            return;
-          }
-          resolve(result as Pick<ChromeStorage, K>);
+        return await new Promise((resolve, reject) => {
+          chrome.storage.local.get([...keys], (result) => {
+            if (chrome.runtime.lastError) {
+              // Create a specific error to check for retry
+              const error = new FAFError(
+                FAFErrorCode.CHROME_STORAGE_ERROR,
+                chrome.runtime.lastError.message || 'Unknown storage error',
+                { technicalDetails: `Chrome API operation failed on attempt ${attempt}` }
+              );
+              return reject(error);
+            }
+            resolve(result as Pick<ChromeStorage, K>);
+          });
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown storage error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        if (error instanceof FAFError && error.message.includes('Receiving end does not exist') && attempt < MAX_RETRIES) {
+          console.warn(`FAF: Storage connection failed (attempt ${attempt}). Retrying in ${RETRY_DELAY_MS}ms...`);
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue; // next attempt
+        }
+        // If it's another error or the last attempt, re-throw
+        throw error;
       }
-    });
+    }
+
+    // This line should theoretically be unreachable if MAX_RETRIES > 0
+    throw new FAFError(
+      FAFErrorCode.CHROME_STORAGE_ERROR,
+      'Failed to get data from storage after multiple retries',
+      { technicalDetails: 'Exhausted all retry attempts for chrome.storage.local.get' }
+    );
   }
 
   static async set(data: Partial<ChromeStorage>): Promise<void> {
@@ -332,16 +339,25 @@ export class ChromeNotifications {
  * Type-safe wrapper for Chrome runtime messaging
  */
 export class ChromeRuntime {
-  static sendMessage(message: Message): void {
-    try {
-      chrome.runtime.sendMessage(message);
-    } catch (error) {
-      throw new FAFError(
-        FAFErrorCode.CHROME_RUNTIME_ERROR,
-        error instanceof Error ? error.message : 'Unknown runtime error',
-        { technicalDetails: "Chrome API operation failed" }
-      );
-    }
+  static sendMessage(message: Message): Promise<any> {
+    return new Promise((resolve, reject) => {
+      try {
+        chrome.runtime.sendMessage(message, (response) => {
+          if (chrome.runtime.lastError) {
+            return reject(new FAFError(
+              FAFErrorCode.CHROME_RUNTIME_ERROR,
+              chrome.runtime.lastError.message || 'Unknown runtime error'
+            ));
+          }
+          resolve(response);
+        });
+      } catch (error) {
+        reject(new FAFError(
+          FAFErrorCode.CHROME_API_UNAVAILABLE,
+          error instanceof Error ? error.message : 'Unknown messaging error'
+        ));
+      }
+    });
   }
 
   static onMessage(

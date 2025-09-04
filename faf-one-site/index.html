@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAF - Foundational AI-context Format | The Universal Standard</title>
+    <meta name="description" content="Universal, shareable AI-Context for any AI, human or team. Stop FAFFing About!">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 3px solid #00ff88;
+            margin-bottom: 40px;
+        }
+        h1 { 
+            font-size: 3em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .tagline { 
+            font-size: 1.2em;
+            color: #666;
+            margin: 20px 0;
+        }
+        .version {
+            display: inline-block;
+            background: #00ff88;
+            color: #000;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .section {
+            margin: 40px 0;
+        }
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+        .code-block {
+            background: #f4f4f4;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        .links {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            background: #764ba2;
+        }
+        .score-example {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .score-number {
+            font-size: 4em;
+            font-weight: bold;
+        }
+        .emoji { font-size: 1.5em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>FAF</h1>
+        <div class="tagline">Foundational AI-context Format</div>
+        <p><strong>Universal, shareable AI-Context for any AI, human or team</strong></p>
+        <p>Regardless of size, location, languages, stack, setup or documentation</p>
+        <div style="margin-top: 20px;">
+            <span class="version">v1.0</span>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🚀 What is .faf?</h2>
+        <p><strong>"JSON wasn't built for this, .faf was"</strong></p>
+        <p>.faf files contain your project's "DNA" - everything an AI needs to understand your codebase instantly. Think package.json, but for AI context.</p>
+        <ul style="margin: 20px 0; list-style: none; padding-left: 0;">
+            <li style="padding: 8px 0;">• Replaces 20+ questions with one file</li>
+            <li style="padding: 8px 0;">• Works with any project type (React, Python, Node.js, Vue, Svelte, etc.)</li>
+            <li style="padding: 8px 0;">• Scores your context quality (aim for 80%+ to beat most projects immediately)</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>⚡ The Simplest Start</h2>
+        <p>A minimal .faf file is just 4 lines:</p>
+        <div class="code-block">
+faf_version: "1.0"
+project:
+  name: "my-app"
+  type: "web-app"
+        </div>
+        <p>That's it. Your AI now understands your project.</p>
+    </div>
+
+    <div class="score-example">
+        <div>What's the FAF?</div>
+        <div class="score-number">87</div>
+        <div>Your AI-Readiness Score</div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Complete Example</h2>
+        <div class="code-block">
+faf_version: "1.0"
+generated: "2025-01-23T10:30:00Z"
+
+project:
+  name: "task-manager"
+  type: "web-app"
+  description: "Team task management platform"
+  version: "2.1.0"
+  
+stack:
+  frontend: "React 18 + TypeScript"
+  backend: "Express.js"
+  runtime: "AWS EC2"
+  build: "Webpack"
+  
+ai:
+  context_file: "CLAUDE.md"
+  score: 87
+  
+metadata:
+  author: "john-doe"
+  repository: "github.com/john/task-manager"
+  license: "MIT"
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🛠️ Get Started</h2>
+        <div class="links">
+            <a href="https://github.com/Wolfe-Jam/faf" class="button">View Specification</a>
+            <a href="https://fafdev.tools" class="button">Web App</a>
+            <a href="https://fafcli.dev" class="button">CLI Tool</a>
+            <a href="#" class="button">Chrome Extension</a>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🌍 Universal 4-Card Stack Model</h2>
+        <p>Every project fits this model:</p>
+        <ul>
+            <li><strong>frontend:</strong> React/Vue/Terminal/Jupyter</li>
+            <li><strong>backend:</strong> Node/Python/Go/Logic</li>
+            <li><strong>runtime:</strong> Vercel/AWS/Binary/Local</li>
+            <li><strong>build:</strong> Vite/Poetry/Make/Docker</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📊 AI-Readiness Score (0-100)</h2>
+        <ul>
+            <li><strong>0-40:</strong> Minimal context</li>
+            <li><strong>41-60:</strong> Basic understanding</li>
+            <li><strong>61-80:</strong> Good AI collaboration</li>
+            <li><strong>81-100:</strong> Perfect AI context</li>
+        </ul>
+    </div>
+
+    <div class="section" style="text-align: center; margin-top: 60px; padding-top: 40px; border-top: 1px solid #ddd;">
+        <p style="color: #666;">
+            Created by <a href="https://twitter.com/wolfejam" style="color: #667eea;">@wolfejam</a><br>
+            "AI-Context for AI, by AI (and that British guy)"
+        </p>
+        <p class="emoji" style="margin-top: 20px;">🏎️⚡️</p>
+    </div>
+</body>
+</html>

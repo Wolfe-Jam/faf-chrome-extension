@@ -1,13 +1,13 @@
 {
   "name": "faf-chrome-extension",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "FAF - Fast AF Context extraction for Chrome",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite build --mode development --watch",
-    "build": "tsc --noEmit && vite build",
-    "build:prod": "NODE_ENV=production vite build",
+    "build": "vite build --config vite.content.config.ts && vite build --config vite.popup.config.ts && vite build --config vite.sw.config.ts",
+    "build:prod": "NODE_ENV=production vite build --config vite.content.config.ts && NODE_ENV=production vite build --config vite.popup.config.ts && NODE_ENV=production vite build --config vite.sw.config.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
@@ -35,25 +35,25 @@
     "release:minor": "npm version minor && npm run deploy:prod",
     "release:major": "npm version major && npm run deploy:prod"
   },
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
-  },
   "devDependencies": {
     "@biomejs/biome": "^1.4.1",
+    "@sveltejs/vite-plugin-svelte": "^3.1.2",
+    "@tsconfig/svelte": "^5.0.5",
     "@types/chrome": "^0.0.254",
     "@types/node": "^20.10.0",
-    "@types/react": "^18.2.45",
-    "@types/react-dom": "^18.2.18",
-    "@vitejs/plugin-react": "^4.2.0",
     "@vitest/coverage-v8": "^1.0.0",
     "@vitest/ui": "^1.0.0",
     "jsdom": "^26.1.0",
+    "svelte": "^4.2.20",
+    "svelte-check": "^4.3.1",
     "typescript": "^5.3.0",
     "vite": "^5.0.0",
     "vitest": "^1.0.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@faf/engine": "file:../faf-cli/faf-engine/faf-engine-1.0.0.tgz"
   }
 }

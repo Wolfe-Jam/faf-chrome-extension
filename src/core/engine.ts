@@ -24,7 +24,8 @@ import {
   CodeBlockDetector 
 } from '@/adapters/platforms';
 
-import { ScoringEngine } from '@/core/scorer';
+import { ScoreCalculator } from '@/core/scorer';
+import { browserFafEngine, initializeBrowserFafEngine } from '@/core/browser-faf-engine';
 import { telemetry, trackPerformance } from '@/core/telemetry';
 import { 
   FAFError, 
@@ -42,24 +43,26 @@ export interface ExtractionOptions {
 }
 
 export const DEFAULT_OPTIONS: ExtractionOptions = {
-  timeout: 300, // 300ms requirement
+  timeout: 15000, // 15 second timeout for complex GitHub repos
   includeContent: true,
   maxFileSize: 100_000, // 100KB per file
   maxFiles: 50
 } as const;
 
 /**
- * Main FAF extraction engine with <300ms performance guarantee
+ * Main FAF extraction engine with browser-compatible FAF analysis
  */
 export class FAFEngine {
   private readonly options: ExtractionOptions;
-  private readonly scorer: ScoringEngine;
+  
   private readonly startTime: number;
 
   constructor(options: ExtractionOptions = DEFAULT_OPTIONS) {
     this.options = options;
-    this.scorer = new ScoringEngine();
     this.startTime = performance.now();
+
+    // Initialize browser FAF engine
+    initializeBrowserFafEngine();
   }
 
   /**
@@ -83,7 +86,7 @@ export class FAFEngine {
               FAFErrorCode.EXTRACTION_TIMEOUT,
               `Extraction timeout after ${this.options.timeout}ms`,
               {
-                context: { timeout: this.options.timeout }
+                context: { timestamp: Date.now() }
               }
             ));
           }, this.options.timeout);
@@ -94,7 +97,7 @@ export class FAFEngine {
             this.performExtraction(),
             timeoutPromise
           ]);
-        }, this.options.timeout);
+        });
 
         // Track successful extraction
         telemetry.trackExtraction('complete', {
@@ -104,7 +107,7 @@ export class FAFEngine {
           fileCount: result.context.structure.totalFiles
         });
 
-        return { success: true, faf: result };
+        return { success: true as const, faf: result };
       },
       {
         operationId: 'faf_extraction',
@@ -177,8 +180,8 @@ export class FAFEngine {
         metadata: this.createMetadata()
       };
 
-      // Calculate final score
-      const score = this.scorer.calculateScore(preliminaryContext as CodeContext);
+      // Calculate final score using browser-compatible FAF engine
+      const score = await browserFafEngine.scoreContext(preliminaryContext as CodeContext);
 
       // Build complete context
       const context: CodeContext = {
@@ -193,7 +196,7 @@ export class FAFEngine {
         FAFErrorCode.EXTRACTION_FAILED,
         'Failed to perform context extraction',
         {
-          context: { originalError: error instanceof Error ? error.message : 'Unknown error' }
+          context: { error: error instanceof Error ? error.message : 'Unknown error' }
         }
       );
     }
@@ -213,7 +216,7 @@ export class FAFEngine {
           {
             context: { 
               platform,
-              originalError: error instanceof Error ? error.message : 'Unknown error'
+              error: error instanceof Error ? error.message : 'Unknown error'
             }
           }
         );
@@ -235,7 +238,7 @@ export class FAFEngine {
           {
             context: { 
               platform,
-              originalError: error instanceof Error ? error.message : 'Unknown error'
+              error: error instanceof Error ? error.message : 'Unknown error'
             }
           }
         );
@@ -257,7 +260,7 @@ export class FAFEngine {
           {
             context: { 
               platform,
-              originalError: error instanceof Error ? error.message : 'Unknown error'
+              error: error instanceof Error ? error.message : 'Unknown error'
             }
           }
         );

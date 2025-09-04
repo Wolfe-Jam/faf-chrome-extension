@@ -64,30 +64,33 @@ class ProductionTelemetry {
   private initializeErrorHandling(): void {
     if (!this.config.enableErrorReporting) return;
 
-    // Global error handler
-    window.addEventListener('error', (event) => {
-      this.reportError(new Error(event.message), {
-        action: 'global_error',
-        url: event.filename,
-        line: event.lineno,
-        column: event.colno
+    // Only set up window/document error handlers if available (not in service worker)
+    if (typeof window !== 'undefined') {
+      // Global error handler
+      window.addEventListener('error', (event) => {
+        this.reportError(new Error(event.message), {
+          action: 'global_error',
+          url: event.filename,
+          line: event.lineno,
+          column: event.colno
+        });
       });
-    });
 
-    // Unhandled promise rejection handler
-    window.addEventListener('unhandledrejection', (event) => {
-      this.reportError(
-        new Error(`Unhandled Promise Rejection: ${event.reason}`),
-        { action: 'unhandled_promise_rejection' }
-      );
-    });
+      // Unhandled promise rejection handler
+      window.addEventListener('unhandledrejection', (event) => {
+        this.reportError(
+          new Error(`Unhandled Promise Rejection: ${event.reason}`),
+          { action: 'unhandled_promise_rejection' }
+        );
+      });
+    }
   }
 
   private initializePerformanceTracking(): void {
     if (!this.config.enablePerformanceTracking) return;
 
-    // Track page load performance
-    if (typeof performance !== 'undefined' && performance.timing) {
+    // Track page load performance (only available in window context)
+    if (typeof window !== 'undefined' && typeof performance !== 'undefined' && performance.timing) {
       window.addEventListener('load', () => {
         setTimeout(() => {
           this.trackPerformanceMetrics();
@@ -103,7 +106,7 @@ class ProductionTelemetry {
     // Track service worker startup time
     if (chrome?.runtime) {
       const startTime = performance.now();
-      chrome.runtime.connect({ name: 'telemetry' });
+      // chrome.runtime.connect({ name: 'telemetry' });
       const connectionTime = performance.now() - startTime;
       
       this.recordMetric({
@@ -114,8 +117,8 @@ class ProductionTelemetry {
       });
     }
 
-    // Track content script injection time
-    if (document.readyState === 'loading') {
+    // Track content script injection time (only available in document context)
+    if (typeof document !== 'undefined' && document.readyState === 'loading') {
       const injectionStart = performance.now();
       document.addEventListener('DOMContentLoaded', () => {
         const injectionTime = performance.now() - injectionStart;
@@ -433,8 +436,12 @@ class ProductionTelemetry {
 
 // Initialize telemetry based on environment
 const createTelemetry = (): ProductionTelemetry => {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  const isProduction = process.env.NODE_ENV === 'production';
+  // Use fallback values since process.env doesn't exist in Chrome extension service workers
+  const nodeEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV) || 'production';
+  const telemetryEndpoint = (typeof process !== 'undefined' && process.env?.TELEMETRY_ENDPOINT) || undefined;
+  
+  const isDevelopment = nodeEnv === 'development';
+  const isProduction = nodeEnv === 'production';
 
   const config: TelemetryConfig = {
     environment: isDevelopment ? 'development' : isProduction ? 'production' : 'staging',
@@ -442,7 +449,7 @@ const createTelemetry = (): ProductionTelemetry => {
     enablePerformanceTracking: true,
     enableUserAnalytics: isProduction,
     sampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in prod
-    endpoint: process.env.TELEMETRY_ENDPOINT
+    endpoint: telemetryEndpoint
   };
 
   return new ProductionTelemetry(config);

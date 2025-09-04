@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAF Extension Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #007acc;
+        }
+        code {
+            background: #f1f3f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚀 FAF Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>📋 Testing Instructions</h2>
+        <p>This page is designed to test the FAF (Fast AF) Chrome extension:</p>
+        <ol>
+            <li>Make sure the extension is loaded in Chrome</li>
+            <li>Use keyboard shortcut: <code>Cmd+Shift+F</code> (Mac) or <code>Ctrl+Shift+F</code> (Windows)</li>
+            <li>Or click the FAF icon in the browser toolbar</li>
+            <li>Check browser console for any errors</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>💻 Sample Code Block</h2>
+        <pre><code>function extractContext() {
+    console.log('Testing FAF context extraction');
+    
+    // This is a sample function that should be captured
+    const data = {
+        title: 'Test Page',
+        content: 'Sample content for extraction',
+        timestamp: new Date().toISOString()
+    };
+    
+    return data;
+}</code></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Text Content</h2>
+        <p>This is some text content that should be included in the context extraction. The FAF extension should be able to capture this along with any code blocks on the page.</p>
+        
+        <p>Additional paragraph with more content to test the extraction capabilities. The extension should handle various types of content including headers, paragraphs, and code blocks.</p>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Console Test</h2>
+        <p>Open browser DevTools (F12) and check the Console tab for:</p>
+        <ul>
+            <li>✅ No "Service Worker registration failed" errors</li>
+            <li>✅ No "Could not establish connection" errors</li>
+            <li>✅ Service Worker should show as "active"</li>
+            <li>✅ FAF logging messages should appear when using the extension</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('🧪 FAF Test page loaded');
+        console.log('Extension should be able to extract context from this page');
+        
+        // Test content for extraction
+        window.testData = {
+            page: 'FAF Extension Test',
+            elements: document.querySelectorAll('*').length,
+            codeBlocks: document.querySelectorAll('pre code').length,
+            timestamp: new Date().toISOString()
+        };
+    </script>
+</body>
+</html>

@@ -3,14 +3,18 @@
  * Bulletproof error handling, comprehensive edge case coverage, optimal service level
  */
 
+console.log('FAF Service Worker: Script loading');
+
 import type { 
   Message, 
   ContextExtractedMessage, 
   ExtractContextMessage,
   ErrorMessage,
   ExtractionResult,
-  Score
+  Score,
+  MessageType
 } from '@/core/types';
+import { MESSAGE_TYPES } from '@/core/types';
 
 import { 
   ChromeTabs, 
@@ -36,7 +40,7 @@ class ServiceWorkerState {
   private readonly activeExtractions = new Map<number, {
     readonly tabId: number;
     readonly startTime: number;
-    readonly timeout: NodeJS.Timeout;
+    readonly timeout: number; // Changed from NodeJS.Timeout to number (setTimeout returns number in service workers)
   }>();
 
   private readonly stats = {
@@ -51,7 +55,7 @@ class ServiceWorkerState {
   private readonly MAX_ACTIVE_EXTRACTIONS = 10;
   private readonly MAX_EXTRACTION_AGE_MS = 300000; // 5 minutes
   private readonly CLEANUP_INTERVAL_MS = 60000; // 1 minute
-  private cleanupTimer: NodeJS.Timeout | null = null;
+  private cleanupTimer: number | null = null;
 
   constructor() {
     this.startPeriodicCleanup();
@@ -73,7 +77,7 @@ class ServiceWorkerState {
     this.activeExtractions.set(tabId, {
       tabId,
       startTime: Date.now(),
-      timeout: timeoutId
+      timeout: timeoutId as number
     });
   }
 
@@ -134,7 +138,7 @@ class ServiceWorkerState {
       FAFErrorCode.EXTRACTION_TIMEOUT,
       `Extraction timeout for tab ${tabId}`,
       {
-        context: { tabId, timestamp: Date.now() }
+        context: { timestamp: Date.now() }
       }
     );
     
@@ -149,7 +153,7 @@ class ServiceWorkerState {
         const message: ExtractContextMessage = {
           type: 'EXTRACT_CONTEXT',
           timestamp: Date.now(),
-          source: 'service_worker_retry'
+          source: 'service-worker'
         };
         await ChromeTabs.sendMessage(tabId, message);
       }
@@ -166,7 +170,7 @@ class ServiceWorkerState {
 
     this.cleanupTimer = setInterval(() => {
       this.performCleanup();
-    }, this.CLEANUP_INTERVAL_MS);
+    }, this.CLEANUP_INTERVAL_MS) as number;
 
     // Initial cleanup
     this.performCleanup();
@@ -293,7 +297,7 @@ class ServiceWorkerError extends Error {
  */
 class ServiceWorkerManager {
   private readonly state = new ServiceWorkerState();
-  private readonly EXTRACTION_TIMEOUT = 5000; // 5s timeout for safety
+  private readonly EXTRACTION_TIMEOUT = 30000; // 30s timeout - was too aggressive
   private readonly MAX_CONCURRENT_EXTRACTIONS = 3;
 
   constructor() {
@@ -331,7 +335,7 @@ class ServiceWorkerManager {
         FAFErrorCode.SERVICE_WORKER_INIT_FAILED,
         `Service worker initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         {
-          context: { originalError: error }
+          context: { timestamp: Date.now() }
         }
       );
     }
@@ -353,7 +357,7 @@ class ServiceWorkerManager {
             FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
             'Service worker message handling failed',
             {
-              context: { originalError: error, messageType: message.type }
+              context: { messageType: message.type, timestamp: Date.now() }
             }
           );
 
@@ -445,10 +449,17 @@ class ServiceWorkerManager {
       throw new ServiceWorkerError('Invalid message format', 'MESSAGING_ERROR');
     }
 
-    // Extract tab ID safely
+    // Handle PING messages first, as they don't require a tab context
+    if (message.type === 'PING') {
+      console.log('FAF Service Worker: Received PING, sending PONG.');
+      _sendResponse({ type: 'PONG', timestamp: Date.now(), source: 'service-worker' });
+      return true;
+    }
+
+    // For all other messages, a tab ID is required
     const tabId = sender.tab?.id;
     if (tabId === undefined) {
-      throw new ServiceWorkerError('Message sender has no tab ID', 'TAB_ERROR');
+      throw new ServiceWorkerError('Message sender has no tab ID for non-ping message', 'TAB_ERROR');
     }
 
     console.log(`📨 Received message: ${message.type} from tab ${tabId}`);
@@ -463,6 +474,10 @@ class ServiceWorkerManager {
 
     try {
       switch (message.type) {
+        case 'PING':
+          _sendResponse({ type: 'PONG', timestamp: Date.now(), source: 'service-worker' });
+          return true;
+
         case 'EXTRACT_CONTEXT':
           return await this.handleExtractRequest(message as ExtractContextMessage, tabId);
 
@@ -531,7 +546,7 @@ class ServiceWorkerManager {
         throw new FAFError(
           FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
           `Tab communication failed: ${error.message}`,
-          { context: { tabId, originalError: error } }
+          { context: { timestamp: Date.now() } }
         );
       }
       
@@ -720,16 +735,14 @@ class ServiceWorkerManager {
    */
   getTelemetryHealthReport(): {
     readonly serviceWorker: ReturnType<ServiceWorkerManager['getHealthStatus']>;
-    readonly telemetry: ReturnType<typeof telemetry.generateHealthReport>;
     readonly combined: {
       readonly overall: 'healthy' | 'warning' | 'critical';
       readonly recommendations: readonly string[];
     };
   } {
     const serviceWorkerHealth = this.getHealthStatus();
-    const telemetryHealth = telemetry.generateHealthReport();
     
-    // Combine health assessments
+    // Assess health based on service worker stats
     let overall: 'healthy' | 'warning' | 'critical' = 'healthy';
     const recommendations: string[] = [];
     
@@ -738,22 +751,18 @@ class ServiceWorkerManager {
       recommendations.push('Service worker experiencing issues - check error logs');
     }
     
-    if (telemetryHealth.status.overall === 'critical') {
-      overall = 'critical';
-      recommendations.push('Critical telemetry issues detected');
-    } else if (telemetryHealth.status.overall === 'warning' && overall === 'healthy') {
-      overall = 'warning';
-      recommendations.push('Performance degradation detected');
-    }
-    
     if (serviceWorkerHealth.memoryStats.memoryPressure === 'high') {
       if (overall === 'healthy') overall = 'warning';
       recommendations.push('High memory pressure - consider restart');
     }
     
-    if (telemetryHealth.summary.successRate < 0.8 && telemetryHealth.summary.totalExtractions > 5) {
-      if (overall === 'healthy') overall = 'warning';
-      recommendations.push(`Low success rate: ${Math.round(telemetryHealth.summary.successRate * 100)}%`);
+    const stats = serviceWorkerHealth.stats;
+    if (stats.totalExtractions > 5) {
+      const successRate = stats.successfulExtractions / stats.totalExtractions;
+      if (successRate < 0.8) {
+        if (overall === 'healthy') overall = 'warning';
+        recommendations.push(`Low success rate: ${Math.round(successRate * 100)}%`);
+      }
     }
     
     if (recommendations.length === 0) {
@@ -762,7 +771,6 @@ class ServiceWorkerManager {
     
     return {
       serviceWorker: serviceWorkerHealth,
-      telemetry: telemetryHealth,
       combined: {
         overall,
         recommendations: recommendations as readonly string[]
