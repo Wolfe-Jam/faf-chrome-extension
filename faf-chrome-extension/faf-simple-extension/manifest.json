@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "FAF - AI-Context⚡️Fast AF",
+  "version": "1.0.0",
+  "description": "Extract AI context from any coding site",
+  
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Analyze page for AI context"
+  },
+  
+  "permissions": [
+    "activeTab",
+    "downloads",
+    "scripting"
+  ],
+  
+  
+  "background": {
+    "service_worker": "service-worker.js"
+  }
+}

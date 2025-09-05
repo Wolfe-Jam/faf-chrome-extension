@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root {
+      --faf-orange: #ff6b35;
+      --faf-orange-dark: #e55a00;
+      --faf-cyan: #00ffff;
+      --faf-green: #00bf63;
+      --theme-bg: #FEFCF8;
+      --theme-bg-secondary: #ffffff;
+      --theme-text: #1a1a1a;
+      --theme-text-secondary: #666666;
+      --theme-border: #e5e5e5;
+      --theme-border-light: rgba(229, 229, 229, 0.5);
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --shadow-color-strong: rgba(0, 0, 0, 0.15);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      width: 340px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+      background: var(--theme-bg);
+      color: var(--theme-text);
+    }
+    
+    .header {
+      padding: 20px;
+      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-orange-dark) 100%);
+      color: white;
+      text-align: center;
+      position: relative;
+    }
+    
+    .header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--faf-cyan), var(--faf-green));
+    }
+    
+    .header h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+    }
+    
+    .header .subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+      font-weight: 400;
+    }
+    
+    .content {
+      padding: 24px 20px;
+    }
+    
+    .score-section {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    
+    .score-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--theme-text-secondary);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+    
+    .score {
+      font-size: 64px;
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 0.9;
+      margin-bottom: 12px;
+      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-cyan) 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .grade {
+      display: inline-block;
+      padding: 6px 12px;
+      background: var(--theme-text);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 6px;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+    }
+    
+    .details {
+      font-size: 12px;
+      line-height: 1.7;
+      color: var(--theme-text-secondary);
+      background: var(--theme-bg-secondary);
+      border: 1px solid var(--theme-border-light);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px var(--shadow-color);
+    }
+    
+    .details strong {
+      color: var(--theme-text);
+      font-weight: 600;
+    }
+    
+    button {
+      width: 100%;
+      padding: 16px 20px;
+      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-orange-dark) 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: -0.3px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(-1px);
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--theme-text-secondary);
+      font-size: 14px;
+    }
+    
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--theme-border);
+      border-top-color: var(--faf-orange);
+      border-radius: 50%;
+      animation: spin 1s ease-in-out infinite;
+      margin: 0 auto 16px;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    /* High score celebration for 90%+ */
+    .score.champion {
+      animation: championGlow 2s ease-in-out infinite;
+    }
+    
+    @keyframes championGlow {
+      0%, 100% { 
+        filter: drop-shadow(0 0 10px var(--faf-cyan));
+      }
+      50% { 
+        filter: drop-shadow(0 0 20px var(--faf-cyan));
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>FAF Context Analyzer</h1>
+    <div class="subtitle">AI-Ready Context Extraction</div>
+  </div>
+  
+  <div id="loading" class="loading">
+    <div class="loading-spinner"></div>
+    Analyzing page context...
+  </div>
+  
+  <div id="results" class="content" style="display: none;">
+    <div class="score-section">
+      <div class="score-label">CONTEXT SCORE ⚡️</div>
+      <div id="score" class="score">--</div>
+      <div id="grade" class="grade">-</div>
+    </div>
+    
+    <div id="details" class="details"></div>
+    
+    <button id="download">📊 Generate Report</button>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
