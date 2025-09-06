@@ -6,14 +6,7 @@ console.log('🏎️ FAF service worker started');
 chrome.runtime.onInstalled.addListener(() => {
   console.log('⚡️ FAF extension installed');
   
-  // Set up keyboard shortcut
-  chrome.action.setBadgeText({
-    text: 'FAF'
-  });
-  
-  chrome.action.setBadgeBackgroundColor({
-    color: '#ff6b35'  // FAF orange
-  });
+  // Badge removed for clean icon display
 });
 
 // Handle messages from popup and content scripts

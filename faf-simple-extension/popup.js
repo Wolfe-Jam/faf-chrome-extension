@@ -37,8 +37,17 @@ function analyzeUrl(url) {
   let score = 0;
   let details = [];
   
-  // Simple platform detection
-  if (url.includes('github.com')) {
+  // Chrome internal pages and other non-development environments
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || 
+      url.includes('chrome.google.com/webstore')) {
+    platform = 'Browser Interface';
+    score = null; // No score for non-development pages
+    details.push('⛔️ No Code Grading available');
+    details.push('🌐 Administrative interface detected');
+    details.push('💡 FAF specializes in development environments');
+  }
+  // Simple platform detection for development sites
+  else if (url.includes('github.com')) {
     platform = 'GitHub';
     score = Math.floor(Math.random() * 40) + 50; // 50-90%
     details.push('✅ GitHub repository detected');
@@ -83,18 +92,34 @@ function showResults(data) {
   loadingEl.style.display = 'none';
   resultsEl.style.display = 'block';
   
-  // Display score with champion animation for high scores
-  scoreEl.textContent = data.score + '%';
-  if (data.score >= 90) {
-    scoreEl.classList.add('champion');
-  }
-  
-  // Display grade with special styling for S-grade
-  const grade = getGrade(data.score);
-  gradeEl.textContent = `Grade ${grade}`;
-  if (grade === 'S') {
-    gradeEl.style.background = 'linear-gradient(135deg, var(--faf-cyan), var(--faf-orange))';
+  // Handle "No Code Grading" state
+  if (data.score === null) {
+    scoreEl.textContent = 'N/A';
+    scoreEl.style.color = 'var(--cli-gray)';
+    gradeEl.textContent = '⛔️ NO GRADING';
+    gradeEl.style.background = 'var(--cli-gray)';
     gradeEl.style.color = 'white';
+  } else {
+    // Display score with champion animation for high scores
+    scoreEl.textContent = data.score + '%';
+    scoreEl.style.color = 'var(--cli-green)'; // Reset to default
+    if (data.score >= 91) {
+      scoreEl.classList.add('champion');
+    }
+    
+    // Display grade with special styling for EXCELLENT
+    const grade = getGrade(data.score);
+    gradeEl.textContent = grade;
+    if (grade.includes('🏆 EXCELLENT')) {
+      gradeEl.style.background = '#00bf63'; // CLI green
+      gradeEl.style.color = 'white';
+    } else if (grade.includes('⭐️ GOOD')) {
+      gradeEl.style.background = '#00bf63'; // CLI green  
+      gradeEl.style.color = 'white';
+    } else {
+      gradeEl.style.background = '#2a2a2a'; // CLI black
+      gradeEl.style.color = 'white';
+    }
   }
   
   // Enhanced details with confidence
@@ -116,24 +141,23 @@ function showResults(data) {
   window.fafData = data;
 }
 
-// Get color based on score - Professional palette
+// Get color based on score - CLI flat palette
 function getScoreColor(score) {
-  if (score >= 90) return '#00ff88'; // FAF Green
-  if (score >= 80) return '#10b981'; // Emerald  
-  if (score >= 70) return '#3b82f6'; // Blue
-  if (score >= 60) return '#f59e0b'; // Amber
-  if (score >= 50) return '#ef4444'; // Red
-  return '#6b7280'; // Gray
+  if (score >= 90) return '#00bf63'; // CLI Green
+  if (score >= 80) return '#00bf63'; // CLI Green  
+  if (score >= 70) return '#1a1a1a'; // CLI Black
+  if (score >= 60) return '#666666'; // CLI Gray
+  if (score >= 50) return '#999999'; // CLI Gray Light
+  return '#999999'; // CLI Gray Light
 }
 
-// Get grade based on score
+// Get grade based on score - New Star/Trophy System
 function getGrade(score) {
-  if (score >= 95) return 'S';
-  if (score >= 85) return 'A';
-  if (score >= 75) return 'B'; 
-  if (score >= 65) return 'C';
-  if (score >= 55) return 'D';
-  return 'F';
+  if (score >= 91) return '🏆 EXCELLENT';
+  if (score >= 71) return '⭐️ GOOD';
+  if (score >= 51) return '🟡 FAIR';
+  if (score >= 21) return '🚧 NEEDS WORK';
+  return '❌ POOR';
 }
 
 // Download button handler
@@ -143,33 +167,66 @@ document.getElementById('download').addEventListener('click', function() {
   const data = window.fafData;
   const timestamp = new Date().toISOString().split('T')[0];
   
+  // Clean and deduplicate details for professional report
+  const cleanDetails = [...new Set(data.details)] // Remove exact duplicates
+    .filter(detail => detail.trim().length > 0)   // Remove empty entries
+    .map(detail => {
+      // Clean up redundant "Node.js project" entries
+      if (detail.includes('📦 Node.js project detected') && 
+          data.details.some(d => d === '📦 Node.js project')) {
+        return null; // Remove the redundant one
+      }
+      return detail;
+    })
+    .filter(detail => detail !== null)            // Remove nulls
+    .join('\n');
+  
   // Generate professional report content
   const report = `=====================================================
-FAF Context Analysis Report ⚡️
+.faf AI-CONTEXT Analysis Report ⚡️
 Generated: ${timestamp} ⌚️ https://www.faf.one
 =====================================================
 
 PROJECT: ${data.platform} Analysis
-FAF SCORE: ${data.score}% Grade ${getGrade(data.score)} 📊
+.faf SCORE: ${data.score === null ? 'N/A - No Code Grading Available' : data.score + '% ' + getGrade(data.score)} 📊
 DETECTION METHOD: ${data.method || 'Standard'}
 CONFIDENCE LEVEL: ${data.confidence || 'Standard'}
 URL: ${data.url}
 
 🔍 ANALYSIS RESULTS:
-${data.details.join('\n')}
+${cleanDetails}
 
 📊 PERFORMANCE METRICS:
-⚡️ Context Quality: ${data.score >= 80 ? 'High' : data.score >= 60 ? 'Medium' : 'Low'}
+⚡️ Context Quality: ${data.score === null ? 'Not Applicable' : data.score >= 80 ? 'High' : data.score >= 60 ? 'Medium' : 'Low'}
 ⌚️ Analysis Time: < 300ms
 🏁 Status: Complete
 
-🚀 IMPROVE YOUR SCORE:
+${data.score === null ? 
+`💡 FAF SPECIALIZATION NOTE:
+This page is outside FAF's development-focused scope.
+FAF excels at analyzing code repositories, development 
+environments, and AI-context rich content.
+
+🚀 TRY FAF ON:
+• GitHub repositories
+• CodeSandbox projects  
+• Development documentation
+• Code editor environments` :
+`🚀 IMPROVE YOUR SCORE:
 • Online analyzer: https://www.faf.one/analyze
 • CLI tool: https://www.faf.one/cli  
-• Documentation: https://www.faf.one/docs
+• Documentation: https://www.faf.one/docs`}
 
-Generated with FAF Context Analyzer
-https://www.faf.one - Professional AI Context Extraction
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Version 1.0.1
+🤖 AI-Context for AI by AI (and that 🇬🇧Guy)
+Made with 🧡 for developers of all skill levels
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏁 https://faf.one - AI-Context⚡️Fast AF 
+🏎️⚡️ F1-Inspired Software Engineering
+☕️ Dev Support: https://buymeacoffee.com/wolfejam
+
+.faf [orange-smiley] Make your AI happy!
 =====================================================`;
 
   // Download file

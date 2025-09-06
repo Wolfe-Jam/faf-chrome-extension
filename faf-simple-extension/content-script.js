@@ -1,4 +1,4 @@
-// 🏎️⚡️ FAF Extension - Content Script with Wappalyzer-style Analysis
+// 🏎️⚡️ FAF Extension - Content Script with F1-Inspired Omni Data Synthesizer
 
 console.log('🏎️ FAF content script loading...');
 
@@ -13,15 +13,15 @@ document.head.appendChild(script2);
 
 // Wait for scripts to load then initialize
 setTimeout(() => {
-  console.log('🏎️ FAF content script ready with Wappalyzer-style detection');
+  console.log('🏎️ FAF content script ready with F1-Inspired Omni Data Synthesizer');
 }, 100);
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'analyze') {
-    console.log('🔍 Starting Wappalyzer-style analysis...');
+    console.log('🔍 Starting F1-Inspired Omni Data synthesis...');
     
-    const analysis = performWappalyzerAnalysis();
+    const analysis = performF1OmniDataSynthesis();
     console.log('✅ Analysis complete:', analysis);
     
     sendResponse(analysis);
@@ -29,9 +29,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   return true; // Keep message channel open for async response
 });
 
-function performWappalyzerAnalysis() {
+function performF1OmniDataSynthesis() {
   try {
-    // Use the Wappalyzer-style analyzer
+    // Use the F1-Inspired Omni Data Synthesizer
     const analyzer = new window.FAFAnalyzer();
     const result = analyzer.analyze();
     
@@ -42,7 +42,7 @@ function performWappalyzerAnalysis() {
       confidence: result.confidence,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      method: 'Wappalyzer-style Detection'
+      method: 'F1-Inspired Omni Data Synthesizer'
     };
   } catch (error) {
     console.error('❌ Analyzer failed, falling back to simple detection:', error);
@@ -50,15 +50,22 @@ function performWappalyzerAnalysis() {
   }
 }
 
-// Fallback to simple analysis if Wappalyzer-style fails
+// Fallback to simple analysis if F1 Omni Data Synthesis fails
 function performFallbackAnalysis() {
   const url = window.location.href;
   let platform = 'Unknown';
   let score = 30;
   let details = ['⚠️ Using fallback detection'];
   
-  // Simple URL-based detection
-  if (url.includes('github.com')) {
+  // Chrome internal pages and other non-development environments
+  if (url.startsWith('chrome://') || url.startsWith('chrome-extension://') || 
+      url.includes('chrome.google.com/webstore')) {
+    platform = 'Browser Interface';
+    score = null; // No score for non-development pages
+    details = ['⛔️ No Code Grading available', '🌐 Administrative interface detected', '💡 FAF specializes in development environments'];
+  }
+  // Simple URL-based detection for development sites
+  else if (url.includes('github.com')) {
     platform = 'GitHub';
     score = 70;
     details.push('🐙 GitHub repository detected');

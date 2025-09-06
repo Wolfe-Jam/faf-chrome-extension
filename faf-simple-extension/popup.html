@@ -4,18 +4,14 @@
   <meta charset="utf-8">
   <style>
     :root {
-      --faf-orange: #ff6b35;
-      --faf-orange-dark: #e55a00;
-      --faf-cyan: #00ffff;
-      --faf-green: #00bf63;
-      --theme-bg: #FEFCF8;
-      --theme-bg-secondary: #ffffff;
-      --theme-text: #1a1a1a;
-      --theme-text-secondary: #666666;
-      --theme-border: #e5e5e5;
-      --theme-border-light: rgba(229, 229, 229, 0.5);
-      --shadow-color: rgba(0, 0, 0, 0.1);
-      --shadow-color-strong: rgba(0, 0, 0, 0.15);
+      --cli-cream: #fefcf8;
+      --cli-black: #1a1a1a;
+      --cli-gray: #666666;
+      --cli-gray-light: #999999;
+      --cli-green: #00bf63;
+      --cli-black-btn: #2a2a2a;
+      --cli-border: #e5e5e5;
+      --cli-white: #ffffff;
     }
     
     * {
@@ -25,18 +21,23 @@
     }
     
     body {
-      width: 340px;
+      width: 420px;
+      height: 640px;
       font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
-      background: var(--theme-bg);
-      color: var(--theme-text);
+      background: var(--cli-cream);
+      color: var(--cli-black);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     
     .header {
-      padding: 20px;
-      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-orange-dark) 100%);
-      color: white;
+      padding: 16px 24px;
+      background: var(--cli-black);
+      color: var(--cli-white);
       text-align: center;
       position: relative;
+      flex-shrink: 0;
     }
     
     .header::after {
@@ -46,7 +47,7 @@
       left: 0;
       right: 0;
       height: 3px;
-      background: linear-gradient(90deg, var(--faf-cyan), var(--faf-green));
+      background: var(--cli-green);
     }
     
     .header h1 {
@@ -63,101 +64,108 @@
     }
     
     .content {
-      padding: 24px 20px;
+      padding: 18px 24px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     
     .score-section {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
+      flex-shrink: 0;
     }
     
     .score-label {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 1px;
-      color: var(--theme-text-secondary);
-      margin-bottom: 12px;
+      color: var(--cli-gray);
+      margin-bottom: 8px;
       font-weight: 600;
     }
     
     .score {
-      font-size: 64px;
+      font-size: 48px;
       font-weight: 900;
       letter-spacing: -2px;
       line-height: 0.9;
-      margin-bottom: 12px;
-      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-cyan) 100%);
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      color: var(--cli-green);
     }
     
     .grade {
       display: inline-block;
       padding: 6px 12px;
-      background: var(--theme-text);
+      background: var(--cli-green);
       color: white;
       font-size: 14px;
       font-weight: 700;
       border-radius: 6px;
       letter-spacing: 1px;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
     
     .details {
-      font-size: 12px;
-      line-height: 1.7;
-      color: var(--theme-text-secondary);
-      background: var(--theme-bg-secondary);
-      border: 1px solid var(--theme-border-light);
-      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--cli-gray);
+      background: var(--cli-white);
+      border: 1px solid var(--cli-border);
+      border-radius: 8px;
       padding: 16px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px var(--shadow-color);
+      margin-bottom: 16px;
+      flex: 1;
+      overflow-y: auto;
     }
     
     .details strong {
-      color: var(--theme-text);
+      color: var(--cli-black);
       font-weight: 600;
     }
     
     button {
       width: 100%;
-      padding: 16px 20px;
-      background: linear-gradient(135deg, var(--faf-orange) 0%, var(--faf-orange-dark) 100%);
+      padding: 12px 20px;
+      background: var(--cli-green);
       color: white;
       border: none;
-      border-radius: 12px;
+      border-radius: 8px;
       font-size: 14px;
       font-weight: 700;
       cursor: pointer;
       font-family: inherit;
       letter-spacing: -0.3px;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+      transition: opacity 0.2s ease;
+      flex-shrink: 0;
     }
     
     button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(255, 107, 53, 0.4);
+      opacity: 0.9;
     }
     
     button:active {
-      transform: translateY(-1px);
+      opacity: 0.8;
     }
     
     .loading {
       text-align: center;
-      padding: 60px 20px;
-      color: var(--theme-text-secondary);
+      padding: 40px 24px;
+      color: var(--cli-gray);
       font-size: 14px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
     }
     
     .loading-spinner {
       width: 32px;
       height: 32px;
-      border: 3px solid var(--theme-border);
-      border-top-color: var(--faf-orange);
+      border: 3px solid var(--cli-border);
+      border-top-color: var(--cli-green);
       border-radius: 50%;
       animation: spin 1s ease-in-out infinite;
       margin: 0 auto 16px;
@@ -169,23 +177,15 @@
     
     /* High score celebration for 90%+ */
     .score.champion {
-      animation: championGlow 2s ease-in-out infinite;
-    }
-    
-    @keyframes championGlow {
-      0%, 100% { 
-        filter: drop-shadow(0 0 10px var(--faf-cyan));
-      }
-      50% { 
-        filter: drop-shadow(0 0 20px var(--faf-cyan));
-      }
+      color: var(--cli-green);
+      font-weight: 900;
     }
   </style>
 </head>
 <body>
   <div class="header">
-    <h1>FAF Context Analyzer</h1>
-    <div class="subtitle">AI-Ready Context Extraction</div>
+    <h1>.faf AI-CONTEXT card</h1>
+    <div class="subtitle">AI-Readiness Evaluation</div>
   </div>
   
   <div id="loading" class="loading">
@@ -195,14 +195,18 @@
   
   <div id="results" class="content" style="display: none;">
     <div class="score-section">
-      <div class="score-label">CONTEXT SCORE ⚡️</div>
+      <div class="score-label">AI-Context ⚡️READY Score</div>
       <div id="score" class="score">--</div>
       <div id="grade" class="grade">-</div>
     </div>
     
     <div id="details" class="details"></div>
     
-    <button id="download">📊 Generate Report</button>
+    <button id="download">📊 GENERATE FREE REPORT</button>
+    
+    <div style="text-align: center; margin-top: 12px; padding-top: 2rem; font-size: 12px; color: var(--cli-gray); font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 4px;">
+      .faf <img src="orange-smiley-16 Background Removed.png" style="width: 28px; height: 28px; vertical-align: middle;"> Make your AI happy!
+    </div>
   </div>
   
   <script src="popup.js"></script>
