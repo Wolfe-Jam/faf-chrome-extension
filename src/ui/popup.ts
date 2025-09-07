@@ -12,7 +12,7 @@ if (!appElement) {
 
 const app = new Popup({
   target: appElement,
-  props: {}
+  props: {},
 });
 
 export default app;

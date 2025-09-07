@@ -3,13 +3,9 @@
  * User-friendly error display with recovery guidance
  */
 
-import { 
-  FAFError, 
-  FAFErrorSeverity, 
-  ErrorUtils 
-} from '@/core/errors';
-import { errorRecovery } from '@/core/error-recovery';
 import { ChromeNotifications } from '@/adapters/chrome';
+import { errorRecovery } from '@/core/error-recovery';
+import { FAFError, FAFErrorSeverity } from '@/core/errors';
 import { telemetry } from '@/core/telemetry';
 
 export interface ErrorNotificationOptions {
@@ -25,7 +21,7 @@ export const DEFAULT_NOTIFICATION_OPTIONS: ErrorNotificationOptions = {
   showInPopup: false,
   showInConsole: true,
   autoRetry: false,
-  retryDelay: 5000
+  retryDelay: 5000,
 };
 
 /**
@@ -94,9 +90,8 @@ export class ErrorNotificationService {
         severity: fafError.severity,
         operationId: context.operationId,
         operationType: context.operationType,
-        notificationMethod: this.getNotificationMethods(options)
+        notificationMethod: this.getNotificationMethods(options),
       });
-
     } finally {
       // Clean up notification tracking
       setTimeout(() => {
@@ -113,18 +108,13 @@ export class ErrorNotificationService {
     message: string = 'Issue resolved successfully!'
   ): Promise<void> {
     try {
-      await ChromeNotifications.create(
-        'FAF - Recovered ✅',
-        message,
-        'icons/success-128.png'
-      );
+      await ChromeNotifications.create('FAF - Recovered ✅', message, 'icons/success-128.png');
 
       telemetry.track('error_boundary', {
         type: 'recovery_success_notification',
         operationId,
-        message
+        message,
       });
-
     } catch (error) {
       console.warn('Failed to show recovery success notification:', error);
     }
@@ -149,7 +139,7 @@ export class ErrorNotificationService {
       message: displayInfo.message,
       severity: displayInfo.severity,
       canRetry: displayInfo.canRetry,
-      actions: this.createErrorActions(fafError, recommendations)
+      actions: this.createErrorActions(fafError, recommendations),
     };
   }
 
@@ -158,7 +148,7 @@ export class ErrorNotificationService {
    */
   dismissErrorType(errorCode: string): void {
     this.userDismissals.add(errorCode);
-    
+
     // Auto-clear dismissal after 1 hour
     setTimeout(() => {
       this.userDismissals.delete(errorCode);
@@ -166,7 +156,7 @@ export class ErrorNotificationService {
 
     telemetry.track('user_action', {
       action: 'error_dismissed',
-      errorCode
+      errorCode,
     });
   }
 
@@ -189,7 +179,7 @@ export class ErrorNotificationService {
     return {
       activeCount: this.activeNotifications.size,
       dismissedCount: this.userDismissals.size,
-      activeNotifications: Array.from(this.activeNotifications)
+      activeNotifications: Array.from(this.activeNotifications),
     };
   }
 
@@ -202,7 +192,7 @@ export class ErrorNotificationService {
     // Don't show notifications for certain error types that are expected
     const silentErrors = [
       'FAF_1003', // PLATFORM_NOT_SUPPORTED
-      'FAF_1503'  // CLIPBOARD_DATA_TOO_LARGE
+      'FAF_1503', // CLIPBOARD_DATA_TOO_LARGE
     ];
 
     return !silentErrors.includes(error.code);
@@ -211,19 +201,19 @@ export class ErrorNotificationService {
   private async showBrowserNotification(
     error: FAFError,
     displayInfo: ReturnType<FAFError['getDisplayInfo']>,
-    context: { readonly operationId: string; readonly operationType: string }
+    _context: { readonly operationId: string; readonly operationType: string }
   ): Promise<void> {
     try {
       const icon = this.getNotificationIcon(error.severity);
       const title = `FAF - ${displayInfo.title}`;
-      
+
       // Truncate message for notification
-      const message = displayInfo.message.length > 100 
-        ? `${displayInfo.message.substring(0, 97)}...`
-        : displayInfo.message;
+      const message =
+        displayInfo.message.length > 100
+          ? `${displayInfo.message.substring(0, 97)}...`
+          : displayInfo.message;
 
       await ChromeNotifications.create(title, message, icon);
-
     } catch (notificationError) {
       console.warn('Failed to show browser notification:', notificationError);
       // Don't throw - notification failure shouldn't break error handling
@@ -237,21 +227,21 @@ export class ErrorNotificationService {
   ): void {
     const consoleMethod = this.getConsoleMethod(error.severity);
     const prefix = `[FAF ${context.operationType}]`;
-    
+
     consoleMethod(`${prefix} ${error.code}: ${error.message}`, {
       userMessage: displayInfo.message,
       severity: error.severity,
       recoveryActions: displayInfo.actions,
       context: error.context,
-      operationId: context.operationId
+      operationId: context.operationId,
     });
   }
 
   private async handleAutoRetry(
-    error: FAFError,
-    context: { 
-      readonly operationId: string; 
-      readonly retryOperation?: () => Promise<void>; 
+    _error: FAFError,
+    context: {
+      readonly operationId: string;
+      readonly retryOperation?: () => Promise<void>;
     },
     options: ErrorNotificationOptions
   ): Promise<void> {
@@ -260,15 +250,14 @@ export class ErrorNotificationService {
     }
 
     // Wait for retry delay
-    await new Promise(resolve => setTimeout(resolve, options.retryDelay));
+    await new Promise((resolve) => setTimeout(resolve, options.retryDelay));
 
     try {
       console.log(`[FAF Auto-Retry] Attempting to retry ${context.operationId}...`);
       await context.retryOperation();
-      
+
       // Show success notification on auto-recovery
       await this.showRecoverySuccess(context.operationId, 'Auto-retry successful!');
-
     } catch (retryError) {
       console.warn(`[FAF Auto-Retry] Retry failed for ${context.operationId}:`, retryError);
       // Don't show another error notification for the retry failure
@@ -276,7 +265,7 @@ export class ErrorNotificationService {
   }
 
   private createErrorActions(
-    error: FAFError,
+    _error: FAFError,
     recommendations: ReturnType<typeof errorRecovery.getRecoveryRecommendations>
   ): readonly ErrorAction[] {
     const actions: ErrorAction[] = [];
@@ -287,7 +276,7 @@ export class ErrorNotificationService {
         id: `immediate_${index}`,
         label: action,
         type: 'primary',
-        priority: 'high'
+        priority: 'high',
       });
     });
 
@@ -297,7 +286,7 @@ export class ErrorNotificationService {
         id: `followup_${index}`,
         label: action,
         type: 'secondary',
-        priority: 'medium'
+        priority: 'medium',
       });
     });
 
@@ -306,7 +295,7 @@ export class ErrorNotificationService {
       id: 'dismiss',
       label: 'Dismiss',
       type: 'secondary',
-      priority: 'low'
+      priority: 'low',
     });
 
     return actions;
@@ -317,7 +306,7 @@ export class ErrorNotificationService {
       [FAFErrorSeverity.LOW]: 'icons/info-128.png',
       [FAFErrorSeverity.MEDIUM]: 'icons/warning-128.png',
       [FAFErrorSeverity.HIGH]: 'icons/error-128.png',
-      [FAFErrorSeverity.CRITICAL]: 'icons/critical-128.png'
+      [FAFErrorSeverity.CRITICAL]: 'icons/critical-128.png',
     };
 
     return icons[severity] || 'icons/warning-128.png';
@@ -389,20 +378,23 @@ export async function handleErrorWithRecovery<T>(
     return await errorRecovery.withRecovery(operation, {
       operationId: context.operationId,
       context: context.operationType,
-      fallbackOperation: context.fallback
+      fallbackOperation: context.fallback,
     });
-
   } catch (error) {
     // Show error notification
-    await showError(error, {
-      operationId: context.operationId,
-      operationType: context.operationType,
-      retryOperation: async () => {
-        const result = await operation();
-        await errorNotifications.showRecoverySuccess(context.operationId);
-        return result;
-      }
-    }, notificationOptions);
+    await showError(
+      error,
+      {
+        operationId: context.operationId,
+        operationType: context.operationType,
+        retryOperation: async () => {
+          const result = await operation();
+          await errorNotifications.showRecoverySuccess(context.operationId);
+          return result;
+        },
+      },
+      notificationOptions
+    );
 
     throw error;
   }

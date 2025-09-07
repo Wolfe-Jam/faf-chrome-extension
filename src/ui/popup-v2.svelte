@@ -1,105 +1,93 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { 
-    extractionStore, 
-    isExtractingStore, 
-    errorStore, 
-    extractionActions,
-    hasExtractionStore,
-    sessionStore
-  } from '@/stores/extraction';
-  import { ChromeTabs } from '@/adapters/chrome';
-  import { telemetry } from '@/core/telemetry';
-  
-  // Components
-  import ScoreBadge from '../components/ScoreBadge.svelte';
-  import ErrorDisplay from '../components/ErrorDisplay.svelte';
-  import FileList from '../components/FileList.svelte';
+import { onMount } from 'svelte';
+import { ChromeTabs } from '@/adapters/chrome';
+import { telemetry } from '@/core/telemetry';
+import { extractionActions } from '@/stores/extraction';
 
-  // Reactive stores
-  $: extraction = $extractionStore;
-  $: isExtracting = $isExtractingStore;
-  $: error = $errorStore;
-  $: hasExtraction = $hasExtractionStore;
+// Reactive stores
+$: extraction = $extractionStore;
+$: isExtracting = $isExtractingStore;
+$: error = $errorStore;
+$: hasExtraction = $hasExtractionStore;
 
-  // Initialize popup
-  onMount(async () => {
-    // Track popup opened
-    telemetry.track('user_action', {
-      action: 'popup_opened',
-      timestamp: Date.now()
-    });
-
-    // Load stored extraction
-    await extractionActions.loadStoredExtraction();
+// Initialize popup
+onMount(async () => {
+  // Track popup opened
+  telemetry.track('user_action', {
+    action: 'popup_opened',
+    timestamp: Date.now(),
   });
 
-  // Handle extraction
-  async function handleExtract() {
-    if (isExtracting) return;
+  // Load stored extraction
+  await extractionActions.loadStoredExtraction();
+});
 
-    extractionActions.setExtracting(true);
+// Handle extraction
+async function _handleExtract() {
+  if (isExtracting) return;
 
-    try {
-      telemetry.track('user_action', {
-        action: 'extract_clicked',
-        timestamp: Date.now()
-      });
+  extractionActions.setExtracting(true);
 
-      const activeTab = await ChromeTabs.getActiveTab();
-      if (!activeTab?.id) {
-        throw new Error('No active tab found');
-      }
+  try {
+    telemetry.track('user_action', {
+      action: 'extract_clicked',
+      timestamp: Date.now(),
+    });
 
-      // Send message to content script
-      const response = await chrome.tabs.sendMessage(activeTab.id, { action: 'extract' });
-
-      if (response.success) {
-        await extractionActions.setExtraction(response);
-        
-        telemetry.track('extraction_complete', {
-          platform: response.faf.metadata.platform,
-          score: response.faf.score.total,
-          fileCount: response.faf.files.length
-        });
-      } else {
-        throw new Error(response.error || 'Extraction failed');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
-      extractionActions.setError(errorMessage);
-
-      telemetry.track('extraction_error', {
-        error: errorMessage,
-        phase: 'popup_extract'
-      });
-    } finally {
-      extractionActions.setExtracting(false);
+    const activeTab = await ChromeTabs.getActiveTab();
+    if (!activeTab?.id) {
+      throw new Error('No active tab found');
     }
-  }
 
-  // Copy to clipboard
-  async function handleCopy() {
-    if (!hasExtraction || !extraction) return;
+    // Send message to content script
+    const response = await chrome.tabs.sendMessage(activeTab.id, { action: 'extract' });
 
-    try {
-      const fafContent = JSON.stringify(extraction.faf, null, 2);
-      await navigator.clipboard.writeText(fafContent);
+    if (response.success) {
+      await extractionActions.setExtraction(response);
 
-      telemetry.track('user_action', {
-        action: 'copy_to_clipboard',
-        size: fafContent.length
+      telemetry.track('extraction_complete', {
+        platform: response.faf.metadata.platform,
+        score: response.faf.score.total,
+        fileCount: response.faf.files.length,
       });
-
-      // Visual feedback
-      copied = true;
-      setTimeout(() => copied = false, 2000);
-    } catch (err) {
-      extractionActions.setError('Failed to copy to clipboard');
+    } else {
+      throw new Error(response.error || 'Extraction failed');
     }
-  }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
+    extractionActions.setError(errorMessage);
 
-  let copied = false;
+    telemetry.track('extraction_error', {
+      error: errorMessage,
+      phase: 'popup_extract',
+    });
+  } finally {
+    extractionActions.setExtracting(false);
+  }
+}
+
+// Copy to clipboard
+async function _handleCopy() {
+  if (!hasExtraction || !extraction) return;
+
+  try {
+    const fafContent = JSON.stringify(extraction.faf, null, 2);
+    await navigator.clipboard.writeText(fafContent);
+
+    telemetry.track('user_action', {
+      action: 'copy_to_clipboard',
+      size: fafContent.length,
+    });
+
+    // Visual feedback
+    copied = true;
+    setTimeout(() => (copied = false), 2000);
+  } catch (_err) {
+    extractionActions.setError('Failed to copy to clipboard');
+  }
+}
+
+let copied = false;
 </script>
 
 <div class="popup">

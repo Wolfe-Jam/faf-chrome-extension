@@ -1,199 +1,198 @@
 <script lang="ts">
-  import type { ExtractionResult } from '@/core/types';
-  import { getBadgeColors, getScoreValue } from '@/core/types';
-  import { ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
-  import { DownloadsManager } from '@/adapters/downloads';
-  import { telemetry } from '@/core/telemetry';
-  import { onMount } from 'svelte';
+import { onMount } from 'svelte';
+import { ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
+import { DownloadsManager } from '@/adapters/downloads';
+import { telemetry } from '@/core/telemetry';
+import type { ExtractionResult } from '@/core/types';
 
-  // State
-  let lastExtraction: ExtractionResult | null = null;
-  let isExtracting = false;
-  let error: string | null = null;
+// State
+let lastExtraction: ExtractionResult | null = null;
+let isExtracting = false;
+let error: string | null = null;
 
-  // Load stored extraction on mount
-  onMount(async () => {
-    try {
-      // Track popup opened
-      telemetry.track('user_action', {
-        action: 'popup_opened',
-        timestamp: Date.now()
-      });
+// Load stored extraction on mount
+onMount(async () => {
+  try {
+    // Track popup opened
+    telemetry.track('user_action', {
+      action: 'popup_opened',
+      timestamp: Date.now(),
+    });
 
-      const stored = await ChromeStorageAPI.get(['lastExtraction']);
-      if (stored.lastExtraction) {
-        lastExtraction = stored.lastExtraction;
-      }
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'Failed to load stored data';
-      
-      // Track popup error
-      telemetry.track('error_boundary', {
-        source: 'popup',
-        error: error,
-        phase: 'load'
-      });
+    const stored = await ChromeStorageAPI.get(['lastExtraction']);
+    if (stored.lastExtraction) {
+      lastExtraction = stored.lastExtraction;
     }
-  });
+  } catch (err) {
+    error = err instanceof Error ? err.message : 'Failed to load stored data';
 
-  // Handle extraction
-  async function handleExtract() {
-    if (isExtracting) return;
+    // Track popup error
+    telemetry.track('error_boundary', {
+      source: 'popup',
+      error: error,
+      phase: 'load',
+    });
+  }
+});
 
-    isExtracting = true;
-    error = null;
+// Handle extraction
+async function _handleExtract() {
+  if (isExtracting) return;
 
+  isExtracting = true;
+  error = null;
+
+  try {
+    // Track extraction attempt
+    telemetry.track('user_action', {
+      action: 'extract_clicked',
+      timestamp: Date.now(),
+    });
+
+    const activeTab = await ChromeTabs.getActiveTab();
+    if (!activeTab?.id) {
+      throw new Error('No active tab found');
+    }
+
+    // Send message to content script with proper message format
+    const message = {
+      type: 'EXTRACT_CONTEXT',
+      timestamp: Date.now(),
+      source: 'popup',
+    };
+
+    // First, always try to inject the content script to ensure it's loaded
+    // This handles cases where manifest injection failed or page was already loaded
     try {
-      // Track extraction attempt
-      telemetry.track('user_action', {
-        action: 'extract_clicked',
-        timestamp: Date.now()
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        files: ['content.js'],
       });
 
-      const activeTab = await ChromeTabs.getActiveTab();
-      if (!activeTab?.id) {
-        throw new Error('No active tab found');
-      }
+      // Small delay to ensure script initializes
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    } catch (injectErr) {
+      // Injection might fail if script is already injected, that's okay
+      console.log('Content script injection attempted:', injectErr.message);
+    }
 
-      // Send message to content script with proper message format
-      const message = {
-        type: 'EXTRACT_CONTEXT',
-        timestamp: Date.now(),
-        source: 'popup'
-      };
+    // Now try to send the message
+    let response;
+    try {
+      response = await chrome.tabs.sendMessage(activeTab.id, message);
+    } catch (_err) {
+      // If still failing, try one more time with a longer delay
+      console.log('First message failed, retrying with delay...');
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // First, always try to inject the content script to ensure it's loaded
-      // This handles cases where manifest injection failed or page was already loaded
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: activeTab.id },
-          files: ['content.js']
-        });
-        
-        // Small delay to ensure script initializes
-        await new Promise(resolve => setTimeout(resolve, 100));
-      } catch (injectErr) {
-        // Injection might fail if script is already injected, that's okay
-        console.log('Content script injection attempted:', injectErr.message);
-      }
-      
-      // Now try to send the message
-      let response;
       try {
         response = await chrome.tabs.sendMessage(activeTab.id, message);
-      } catch (err) {
-        // If still failing, try one more time with a longer delay
-        console.log('First message failed, retrying with delay...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        try {
-          response = await chrome.tabs.sendMessage(activeTab.id, message);
-        } catch (finalErr) {
-          console.error('All communication attempts failed:', finalErr);
-          throw new Error('Unable to communicate with page. Please refresh and try again.');
-        }
+      } catch (finalErr) {
+        console.error('All communication attempts failed:', finalErr);
+        throw new Error('Unable to communicate with page. Please refresh and try again.');
       }
-
-      if (response && response.success) {
-        lastExtraction = response;
-        
-        // Store in local storage
-        await ChromeStorageAPI.set({ lastExtraction: response });
-
-        // Track success
-        telemetry.track('extraction_complete', {
-          platform: response.faf?.metadata?.platform || 'unknown',
-          score: response.faf?.score || 0,
-          fileCount: response.faf?.files?.length || 0,
-          duration: Date.now() - performance.now()
-        });
-      } else {
-        throw new Error(response?.error || 'Extraction failed - no response or invalid format');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
-      error = errorMessage;
-
-      // Track extraction error
-      telemetry.track('extraction_error', {
-        error: errorMessage,
-        phase: 'popup_extract'
-      });
-    } finally {
-      isExtracting = false;
     }
-  }
 
-  // Copy to clipboard
-  async function handleCopy() {
-    if (!lastExtraction?.success) return;
+    if (response?.success) {
+      lastExtraction = response;
 
-    try {
-      const fafContent = JSON.stringify(lastExtraction.faf, null, 2);
-      await navigator.clipboard.writeText(fafContent);
+      // Store in local storage
+      await ChromeStorageAPI.set({ lastExtraction: response });
 
-      // Track copy action
-      telemetry.track('user_action', {
-        action: 'copy_to_clipboard',
-        size: fafContent.length
+      // Track success
+      telemetry.track('extraction_complete', {
+        platform: response.faf?.metadata?.platform || 'unknown',
+        score: response.faf?.score || 0,
+        fileCount: response.faf?.files?.length || 0,
+        duration: Date.now() - performance.now(),
       });
-
-      // Show temporary success message
-      const originalText = document.querySelector('.copy-button')?.textContent;
-      const button = document.querySelector('.copy-button');
-      if (button) {
-        button.textContent = '✓ Copied!';
-        setTimeout(() => {
-          button.textContent = originalText || 'Copy FAF';
-        }, 2000);
-      }
-    } catch (err) {
-      error = 'Failed to copy to clipboard';
+    } else {
+      throw new Error(response?.error || 'Extraction failed - no response or invalid format');
     }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
+    error = errorMessage;
+
+    // Track extraction error
+    telemetry.track('extraction_error', {
+      error: errorMessage,
+      phase: 'popup_extract',
+    });
+  } finally {
+    isExtracting = false;
   }
+}
 
-  // Handle download action
-  async function handleDownload() {
-    if (!lastExtraction?.faf) return;
+// Copy to clipboard
+async function _handleCopy() {
+  if (!lastExtraction?.success) return;
 
-    try {
-      await DownloadsManager.downloadFafFile(lastExtraction.faf);
+  try {
+    const fafContent = JSON.stringify(lastExtraction.faf, null, 2);
+    await navigator.clipboard.writeText(fafContent);
 
-      // Track download action
-      telemetry.track('user_action', {
-        action: 'download_faf_file',
-        platform: lastExtraction.faf.metadata?.platform,
-        score: lastExtraction.faf.score
-      });
+    // Track copy action
+    telemetry.track('user_action', {
+      action: 'copy_to_clipboard',
+      size: fafContent.length,
+    });
 
-      // Show temporary success message
-      const originalText = document.querySelector('.download-button')?.textContent;
-      const button = document.querySelector('.download-button');
-      if (button) {
-        button.textContent = '✓ Downloaded!';
-        setTimeout(() => {
-          button.textContent = originalText || '⬇️ Download';
-        }, 2000);
-      }
-    } catch (err) {
-      error = 'Failed to download FAF file';
+    // Show temporary success message
+    const originalText = document.querySelector('.copy-button')?.textContent;
+    const button = document.querySelector('.copy-button');
+    if (button) {
+      button.textContent = '✓ Copied!';
+      setTimeout(() => {
+        button.textContent = originalText || 'Copy FAF';
+      }, 2000);
     }
+  } catch (_err) {
+    error = 'Failed to copy to clipboard';
   }
+}
 
-  // Format file size
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
+// Handle download action
+async function _handleDownload() {
+  if (!lastExtraction?.faf) return;
 
-  // Get score color
-  function getScoreColor(score: number): string {
-    if (score >= 90) return '#10b981'; // green-500
-    if (score >= 70) return '#3b82f6'; // blue-500
-    if (score >= 50) return '#f59e0b'; // amber-500
-    return '#ef4444'; // red-500
+  try {
+    await DownloadsManager.downloadFafFile(lastExtraction.faf);
+
+    // Track download action
+    telemetry.track('user_action', {
+      action: 'download_faf_file',
+      platform: lastExtraction.faf.metadata?.platform,
+      score: lastExtraction.faf.score,
+    });
+
+    // Show temporary success message
+    const originalText = document.querySelector('.download-button')?.textContent;
+    const button = document.querySelector('.download-button');
+    if (button) {
+      button.textContent = '✓ Downloaded!';
+      setTimeout(() => {
+        button.textContent = originalText || '⬇️ Download';
+      }, 2000);
+    }
+  } catch (_err) {
+    error = 'Failed to download FAF file';
   }
+}
+
+// Format file size
+function _formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+// Get score color
+function _getScoreColor(score: number): string {
+  if (score >= 90) return '#10b981'; // green-500
+  if (score >= 70) return '#3b82f6'; // blue-500
+  if (score >= 50) return '#f59e0b'; // amber-500
+  return '#ef4444'; // red-500
+}
 </script>
 
 <div class="popup">

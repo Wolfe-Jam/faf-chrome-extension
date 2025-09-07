@@ -2,11 +2,10 @@
  * FAF Content Script - Runs on every page with bulletproof error handling
  */
 
-import type { Message, ExtractContextMessage, MessageType } from '@/core/types';
-import { MESSAGE_TYPES } from '@/core/types';
-import { FAFEngine } from '@/core/engine';
-import { ClipboardManager, ClipboardError } from '@/adapters/clipboard';
 import { ChromeRuntime } from '@/adapters/chrome';
+import { FAFEngine } from '@/core/engine';
+import type { ExtractContextMessage, Message, MessageType } from '@/core/types';
+import { MESSAGE_TYPES } from '@/core/types';
 
 /**
  * Content script state management
@@ -47,7 +46,11 @@ class ContentScriptState {
 class ContentScriptError extends Error {
   constructor(
     message: string,
-    public readonly code: 'EXTRACTION_FAILED' | 'CLIPBOARD_FAILED' | 'MESSAGING_FAILED' | 'INITIALIZATION_FAILED'
+    public readonly code:
+      | 'EXTRACTION_FAILED'
+      | 'CLIPBOARD_FAILED'
+      | 'MESSAGING_FAILED'
+      | 'INITIALIZATION_FAILED'
   ) {
     super(message);
     this.name = 'ContentScriptError';
@@ -71,13 +74,12 @@ class ContentScriptManager {
     try {
       // Set up message listener with error handling
       ChromeRuntime.onMessage(this.handleMessage.bind(this));
-      
+
       // Mark as initialized
       this.state.setInitialized(true);
-      
+
       // Optional: Inject visual indicators based on platform
       await this.injectVisualIndicators();
-
     } catch (error) {
       throw new ContentScriptError(
         `Initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -105,11 +107,11 @@ class ContentScriptManager {
       switch (message.type) {
         case 'EXTRACT_CONTEXT':
           this.handleExtractContext(message as ExtractContextMessage)
-            .then(result => sendResponse(result))
-            .catch(error => {
-              sendResponse({ 
-                success: false, 
-                error: error instanceof Error ? error.message : 'Extraction failed' 
+            .then((result) => sendResponse(result))
+            .catch((error) => {
+              sendResponse({
+                success: false,
+                error: error instanceof Error ? error.message : 'Extraction failed',
               });
             });
           return true; // Async response
@@ -128,7 +130,9 @@ class ContentScriptManager {
   /**
    * Handle context extraction with timeout and error recovery
    */
-  private async handleExtractContext(_message: ExtractContextMessage): Promise<import('@/core/types').ExtractionResult> {
+  private async handleExtractContext(
+    _message: ExtractContextMessage
+  ): Promise<import('@/core/types').ExtractionResult> {
     // Prevent concurrent extractions
     if (this.state.isExtracting()) {
       throw new ContentScriptError('Extraction already in progress', 'EXTRACTION_FAILED');
@@ -141,10 +145,7 @@ class ContentScriptManager {
       const result = await this.state.getEngine().extract();
 
       if (!result.success) {
-        throw new ContentScriptError(
-          `Extraction failed: ${result.error}`,
-          'EXTRACTION_FAILED'
-        );
+        throw new ContentScriptError(`Extraction failed: ${result.error}`, 'EXTRACTION_FAILED');
       }
 
       // Copy to clipboard (returns boolean for success)
@@ -156,7 +157,7 @@ class ContentScriptManager {
         type: 'CONTEXT_EXTRACTED',
         payload: result,
         timestamp: Date.now(),
-        source: 'content'
+        source: 'content',
       });
 
       // Show success notification
@@ -164,7 +165,6 @@ class ContentScriptManager {
 
       // Return the extraction result to the popup
       return result;
-
     } catch (error) {
       // Send error to background (don't await to prevent blocking)
       ChromeRuntime.sendMessage({
@@ -172,11 +172,11 @@ class ContentScriptManager {
         payload: {
           error: error instanceof Error ? error.message : 'Unknown extraction error',
           code: error instanceof ContentScriptError ? error.code : 'UNKNOWN_ERROR',
-          ...(error instanceof Error && error.stack ? { stack: error.stack } : {})
+          ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
         },
         timestamp: Date.now(),
-        source: 'content'
-      }).catch(msgError => {
+        source: 'content',
+      }).catch((msgError) => {
         // Don't throw on messaging errors during error reporting
         console.warn('Failed to send error to background:', msgError);
       });
@@ -189,63 +189,27 @@ class ContentScriptManager {
   }
 
   /**
-   * Copy FAF content to clipboard with error handling
-   * @returns Promise<boolean> - true if clipboard succeeded, false if permission denied
-   */
-  private async copyToClipboard(faf: Parameters<typeof ClipboardManager.copyFAFContent>[0]): Promise<boolean> {
-    try {
-      // Validate FAF content first
-      ClipboardManager.validateFAFContent(faf);
-      
-      // Copy to clipboard
-      await ClipboardManager.copyFAFContent(faf);
-      return true; // Success
-
-    } catch (error) {
-      if (error instanceof ClipboardError && error.code === 'PERMISSION_DENIED') {
-        // Log helpful message for permission denied - don't throw, just warn
-        console.warn('⚠️ Clipboard access denied. Context extracted successfully but not copied to clipboard.');
-        console.warn('💡 The extension may need to be reloaded, or the page may need a user interaction first.');
-        // Continue execution - don't fail the entire extraction over clipboard issues
-        return false; // Failed clipboard but extraction succeeded
-      }
-      
-      if (error instanceof ClipboardError) {
-        throw new ContentScriptError(
-          `Clipboard operation failed: ${error.message}`,
-          'CLIPBOARD_FAILED'
-        );
-      }
-      
-      throw new ContentScriptError(
-        `Unexpected clipboard error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        'CLIPBOARD_FAILED'
-      );
-    }
-  }
-
-  /**
    * Show success notification with score and clipboard status
    */
   private showSuccessNotification(score: number, clipboardSuccess: boolean = true): void {
     try {
       const notification = document.createElement('div');
       notification.className = 'faf-success-notification';
-      
-      const clipboardStatus = clipboardSuccess 
-        ? 'Copied to clipboard!' 
+
+      const clipboardStatus = clipboardSuccess
+        ? 'Copied to clipboard!'
         : 'Manual copy needed - check console';
-      
+
       const icon = clipboardSuccess ? '⚡️' : '⚠️';
       const bgColor = clipboardSuccess ? '#00FF41' : '#FF6B35';
-      
+
       notification.innerHTML = `
         <div class="faf-notification-content">
           <span class="faf-notification-icon">${icon}</span>
           <span class="faf-notification-text">Context extracted (${score}%) - ${clipboardStatus}</span>
         </div>
       `;
-      
+
       // Add styles with dynamic colors based on clipboard success
       Object.assign(notification.style, {
         position: 'fixed',
@@ -259,10 +223,10 @@ class ContentScriptManager {
         fontSize: '14px',
         fontWeight: '600',
         zIndex: '2147483647', // Maximum z-index value
-        boxShadow: clipboardSuccess 
-          ? '0 4px 12px rgba(0, 255, 65, 0.3)' 
+        boxShadow: clipboardSuccess
+          ? '0 4px 12px rgba(0, 255, 65, 0.3)'
           : '0 4px 12px rgba(255, 107, 53, 0.3)',
-        animation: 'fafSlideIn 0.3s ease-out'
+        animation: 'fafSlideIn 0.3s ease-out',
       });
 
       // Add animation keyframes if not already present
@@ -286,7 +250,6 @@ class ContentScriptManager {
           notification.parentNode.removeChild(notification);
         }
       }, 3000);
-
     } catch (error) {
       // Don't fail extraction if notification fails
       console.warn('Failed to show success notification:', error);
@@ -302,7 +265,7 @@ class ContentScriptManager {
       // Use cached platform if available, otherwise 'unknown' for immediate response
       const detector = new (await import('@/adapters/platforms')).PlatformDetector();
       const platform = detector.getCached() || 'unknown';
-      
+
       if (platform === 'github') {
         this.injectGitHubBadge();
       } else if (platform === 'monaco' || platform === 'codemirror') {
@@ -339,15 +302,15 @@ class ContentScriptManager {
         fontSize: '12px',
         cursor: 'pointer',
         margin: '8px',
-        transition: 'transform 0.2s ease'
+        transition: 'transform 0.2s ease',
       });
 
       badge.addEventListener('click', () => {
         this.handleExtractContext({
           type: 'EXTRACT_CONTEXT',
           timestamp: Date.now(),
-          source: 'content'
-        }).catch(error => {
+          source: 'content',
+        }).catch((error) => {
           console.error('Badge extraction failed:', error);
         });
       });
@@ -395,15 +358,15 @@ class ContentScriptManager {
         zIndex: '999998',
         transition: 'all 0.2s ease',
         fontFamily: 'system-ui, sans-serif',
-        fontWeight: '600'
+        fontWeight: '600',
       });
 
       widget.addEventListener('click', () => {
         this.handleExtractContext({
           type: 'EXTRACT_CONTEXT',
           timestamp: Date.now(),
-          source: 'content'
-        }).catch(error => {
+          source: 'content',
+        }).catch((error) => {
           console.error('Widget extraction failed:', error);
         });
       });
@@ -429,13 +392,13 @@ class ContentScriptManager {
    */
   private isValidMessage(message: unknown): message is Message {
     if (!message || typeof message !== 'object') return false;
-    
+
     const msg = message as Record<string, unknown>;
     return (
-      typeof msg['type'] === 'string' &&
-      MESSAGE_TYPES.includes(msg['type'] as MessageType) &&
-      typeof msg['timestamp'] === 'number' &&
-      typeof msg['source'] === 'string'
+      typeof msg.type === 'string' &&
+      MESSAGE_TYPES.includes(msg.type as MessageType) &&
+      typeof msg.timestamp === 'number' &&
+      typeof msg.source === 'string'
     );
   }
 }
@@ -446,12 +409,12 @@ const manager = new ContentScriptManager();
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    manager.initialize().catch(error => {
+    manager.initialize().catch((error) => {
       console.error('FAF Content Script initialization failed:', error);
     });
   });
 } else {
-  manager.initialize().catch(error => {
+  manager.initialize().catch((error) => {
     console.error('FAF Content Script initialization failed:', error);
   });
 }

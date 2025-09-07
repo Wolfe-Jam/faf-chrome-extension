@@ -11,7 +11,7 @@ import type { Message } from '@/core/types';
  */
 class MockChromeAPI {
   private static instance: MockChromeAPI;
-  
+
   static getInstance(): MockChromeAPI {
     if (!MockChromeAPI.instance) {
       MockChromeAPI.instance = new MockChromeAPI();
@@ -23,45 +23,45 @@ class MockChromeAPI {
     local: {
       get: vi.fn().mockResolvedValue({}),
       set: vi.fn().mockResolvedValue(undefined),
-      clear: vi.fn().mockResolvedValue(undefined)
-    }
+      clear: vi.fn().mockResolvedValue(undefined),
+    },
   };
 
   readonly tabs = {
     query: vi.fn().mockResolvedValue([{ id: 1, url: 'https://github.com/test', active: true }]),
-    sendMessage: vi.fn().mockResolvedValue(undefined)
+    sendMessage: vi.fn().mockResolvedValue(undefined),
   };
 
   readonly action = {
     setBadgeText: vi.fn().mockResolvedValue(undefined),
-    setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined)
+    setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined),
   };
 
   readonly notifications = {
-    create: vi.fn().mockResolvedValue('notification-id')
+    create: vi.fn().mockResolvedValue('notification-id'),
   };
 
   readonly runtime = {
     sendMessage: vi.fn(),
     onMessage: {
-      addListener: vi.fn()
+      addListener: vi.fn(),
     },
     onInstalled: {
-      addListener: vi.fn()
-    }
+      addListener: vi.fn(),
+    },
   };
 
   readonly commands = {
     onCommand: {
-      addListener: vi.fn()
-    }
+      addListener: vi.fn(),
+    },
   };
 
   reset(): void {
-    Object.values(this.storage.local).forEach(mock => mock.mockClear());
-    Object.values(this.tabs).forEach(mock => mock.mockClear());
-    Object.values(this.action).forEach(mock => mock.mockClear());
-    Object.values(this.notifications).forEach(mock => mock.mockClear());
+    Object.values(this.storage.local).forEach((mock) => mock.mockClear());
+    Object.values(this.tabs).forEach((mock) => mock.mockClear());
+    Object.values(this.action).forEach((mock) => mock.mockClear());
+    Object.values(this.notifications).forEach((mock) => mock.mockClear());
     this.runtime.sendMessage.mockClear();
     this.runtime.onMessage.addListener.mockClear();
     this.runtime.onInstalled.addListener.mockClear();
@@ -79,7 +79,11 @@ export class ServiceWorkerTestSuite {
   /**
    * Run all service worker tests
    */
-  async runAllTests(): Promise<{ passed: number; failed: number; results: Array<{ name: string; passed: boolean; error?: string }> }> {
+  async runAllTests(): Promise<{
+    passed: number;
+    failed: number;
+    results: Array<{ name: string; passed: boolean; error?: string }>;
+  }> {
     console.log('🧪 Starting Service Worker Test Suite...');
 
     // Reset mocks
@@ -97,8 +101,8 @@ export class ServiceWorkerTestSuite {
     await this.testKeyboardShortcuts();
 
     // Calculate results
-    const passed = this.testResults.filter(t => t.passed).length;
-    const failed = this.testResults.filter(t => !t.passed).length;
+    const passed = this.testResults.filter((t) => t.passed).length;
+    const failed = this.testResults.filter((t) => !t.passed).length;
 
     console.log(`✅ Tests passed: ${passed}`);
     console.log(`❌ Tests failed: ${failed}`);
@@ -115,7 +119,7 @@ export class ServiceWorkerTestSuite {
       const validMessage: Message = {
         type: 'EXTRACT_CONTEXT',
         timestamp: Date.now(),
-        source: 'popup'
+        source: 'popup',
       };
 
       // This would call the actual validation function
@@ -132,18 +136,18 @@ export class ServiceWorkerTestSuite {
     await this.runTest('Extract Context Message', async () => {
       // Simulate extract context message handling
       this.mockChrome.tabs.sendMessage.mockResolvedValueOnce(undefined);
-      
+
       // This would call the actual message handler
       // For now, we verify the mock was called correctly
       const expectedMessage: Message = {
         type: 'EXTRACT_CONTEXT',
         timestamp: Date.now(),
-        source: 'background'
+        source: 'background',
       };
 
       // Simulate sending message to tab
       await this.mockChrome.tabs.sendMessage(1, expectedMessage);
-      
+
       expect(this.mockChrome.tabs.sendMessage).toHaveBeenCalledWith(1, expectedMessage);
     });
   }
@@ -220,8 +224,8 @@ export class ServiceWorkerTestSuite {
       }, TIMEOUT_MS);
 
       // Wait slightly longer than timeout
-      await new Promise(resolve => setTimeout(resolve, TIMEOUT_MS + 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, TIMEOUT_MS + 10));
+
       expect(timeoutTriggered).toBe(true);
       clearTimeout(timeoutId);
     });
@@ -234,8 +238,8 @@ export class ServiceWorkerTestSuite {
     await this.runTest('Badge Color Updates', async () => {
       const testScores: Array<{ score: number; expectedColor: string }> = [
         { score: 90, expectedColor: '#FF6B35' }, // High score - Orange
-        { score: 65, expectedColor: '#5CE1E6' }, // Medium score - Cyan  
-        { score: 30, expectedColor: '#0A0A0A' }  // Low score - Black
+        { score: 65, expectedColor: '#5CE1E6' }, // Medium score - Cyan
+        { score: 30, expectedColor: '#0A0A0A' }, // Low score - Black
       ];
 
       for (const { score, expectedColor } of testScores) {
@@ -266,7 +270,7 @@ export class ServiceWorkerTestSuite {
         iconUrl: 'icons/social-logo-128.png',
         title: 'FAF - Context Extracted! ⚡️',
         message: `Score: ${mockScore}% | Time: ${mockTime}ms | Copied to clipboard`,
-        priority: 2
+        priority: 2,
       });
 
       expect(this.mockChrome.notifications.create).toHaveBeenCalled();
@@ -280,7 +284,7 @@ export class ServiceWorkerTestSuite {
         iconUrl: 'icons/social-logo-128.png',
         title: 'FAF - Extraction Failed ❌',
         message: `Error: ${errorMessage}`,
-        priority: 2
+        priority: 2,
       });
 
       expect(this.mockChrome.notifications.create).toHaveBeenCalled();
@@ -294,7 +298,7 @@ export class ServiceWorkerTestSuite {
     await this.runTest('Storage Set/Get Operations', async () => {
       const testData = {
         lastExtraction: { success: true, score: 85 },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       // Test storage set
@@ -333,10 +337,10 @@ export class ServiceWorkerTestSuite {
       this.testResults.push({ name, passed: true });
       console.log(`✅ ${name}`);
     } catch (error) {
-      this.testResults.push({ 
-        name, 
-        passed: false, 
-        error: error instanceof Error ? error.message : 'Unknown error'
+      this.testResults.push({
+        name,
+        passed: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
       console.error(`❌ ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -351,18 +355,18 @@ export class ServiceWorkerTestSuite {
     }
 
     const msg = message as Record<string, unknown>;
-    
+
     return (
-      typeof msg['type'] === 'string' &&
-      typeof msg['timestamp'] === 'number' &&
-      typeof msg['source'] === 'string' &&
-      ['popup', 'content', 'background', 'service-worker'].includes(msg['source'] as string)
+      typeof msg.type === 'string' &&
+      typeof msg.timestamp === 'number' &&
+      typeof msg.source === 'string' &&
+      ['popup', 'content', 'background', 'service-worker'].includes(msg.source as string)
     );
   }
 }
 
 // Auto-run tests in development
-if (process.env['NODE_ENV'] === 'development') {
+if (process.env.NODE_ENV === 'development') {
   const testSuite = new ServiceWorkerTestSuite();
   testSuite.runAllTests().then((results) => {
     if (results.failed > 0) {

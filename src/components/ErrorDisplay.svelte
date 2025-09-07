@@ -1,15 +1,15 @@
 <script lang="ts">
-  export let error: string | null;
-  
-  // Auto-dismiss error after 5 seconds
-  let timeoutId: number;
-  
-  $: if (error) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-      error = null;
-    }, 5000);
-  }
+export let error: string | null;
+
+// Auto-dismiss error after 5 seconds
+let timeoutId: number;
+
+$: if (error) {
+  clearTimeout(timeoutId);
+  timeoutId = setTimeout(() => {
+    error = null;
+  }, 5000);
+}
 </script>
 
 {#if error}

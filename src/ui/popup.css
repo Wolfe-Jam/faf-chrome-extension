@@ -4,11 +4,11 @@
 
 /* CSS Custom Properties - Brand Colors */
 :root {
-  --faf-orange: #FF6B35;
-  --faf-cream: #FFF8F0;
-  --faf-cyan: #5CE1E6;
-  --faf-black: #0A0A0A;
-  --faf-orange-light: #FF8855;
+  --faf-orange: #ff6b35;
+  --faf-cream: #fff8f0;
+  --faf-cyan: #5ce1e6;
+  --faf-black: #0a0a0a;
+  --faf-orange-light: #ff8855;
   --faf-shadow-orange: rgba(255, 107, 53, 0.3);
   --faf-shadow-cyan: rgba(92, 225, 230, 0.3);
 }
@@ -21,7 +21,8 @@
   flex-direction: column;
   background: var(--faf-cream);
   color: var(--faf-black);
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  font-family:
+    "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
   font-size: 14px;
   line-height: 1.4;
   border-radius: 12px;
@@ -91,8 +92,13 @@
 }
 
 @keyframes faf-race {
-  0%, 100% { transform: translateX(-2px); }
-  50% { transform: translateX(2px); }
+  0%,
+  100% {
+    transform: translateX(-2px);
+  }
+  50% {
+    transform: translateX(2px);
+  }
 }
 
 /* Error state */
@@ -170,17 +176,17 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  
+
   background: var(--faf-orange);
   color: var(--faf-cream);
   border: none;
   border-radius: 10px;
-  
+
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.2px;
   cursor: pointer;
-  
+
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -226,7 +232,7 @@
 }
 
 .faf-shortcut {
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-family: "SF Mono", "Monaco", "Consolas", monospace;
   padding: 2px 6px;
   background: rgba(10, 10, 10, 0.08);
   border-radius: 4px;
@@ -243,11 +249,11 @@
   .faf-popup {
     width: 300px;
   }
-  
+
   .faf-stats {
     gap: 12px;
   }
-  
+
   .faf-stat-value {
     font-size: 18px;
   }
@@ -258,7 +264,7 @@
   .faf-popup {
     border: 2px solid var(--faf-black);
   }
-  
+
   .faf-extract-btn {
     border: 2px solid var(--faf-cream);
   }
@@ -269,11 +275,11 @@
   .faf-extract-btn {
     transition: none;
   }
-  
+
   .faf-loading-icon {
     animation: none;
   }
-  
+
   .faf-extract-btn:hover:not(:disabled) {
     transform: none;
   }

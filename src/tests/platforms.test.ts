@@ -2,7 +2,7 @@
  * Platform Detection Tests - Critical Platform Recognition Logic
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlatformDetector } from '@/adapters/platforms';
 
 describe('Platform Detection', () => {
@@ -12,14 +12,14 @@ describe('Platform Detection', () => {
   beforeEach(() => {
     // Store original location
     originalLocation = window.location;
-    
+
     // Clear all global state
     (window as any).monaco = undefined;
     (window as any).CodeMirror = undefined;
-    
+
     // Clear any DOM elements from previous tests
     document.body.innerHTML = '';
-    
+
     // Create fresh detector
     detector = new PlatformDetector();
     vi.clearAllMocks();
@@ -29,15 +29,15 @@ describe('Platform Detection', () => {
     // Clean up all global state
     (window as any).monaco = undefined;
     (window as any).CodeMirror = undefined;
-    
+
     // Clear DOM
     document.body.innerHTML = '';
-    
+
     // Restore original location if it was mocked
     if (window.location !== originalLocation) {
       Object.defineProperty(window, 'location', {
         value: originalLocation,
-        writable: true
+        writable: true,
       });
 
       // Recreate detector with new location
@@ -50,10 +50,10 @@ describe('Platform Detection', () => {
       // Mock Monaco editor
       (window as any).monaco = {
         editor: {
-          getModels: vi.fn().mockReturnValue([
-            { uri: { path: '/test.ts' }, getValue: () => 'const test = 1;' }
-          ])
-        }
+          getModels: vi
+            .fn()
+            .mockReturnValue([{ uri: { path: '/test.ts' }, getValue: () => 'const test = 1;' }]),
+        },
       };
 
       const platform = await detector.detect();
@@ -62,7 +62,7 @@ describe('Platform Detection', () => {
 
     it('should not detect Monaco when unavailable', async () => {
       (window as any).monaco = undefined;
-      
+
       const platform = await detector.detect();
       expect(platform).not.toBe('monaco');
     });
@@ -73,9 +73,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'github.com',
-          pathname: '/facebook/react'
+          pathname: '/facebook/react',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -89,9 +89,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'github.com',
-          pathname: '/facebook/react/blob/main/src/index.ts'
+          pathname: '/facebook/react/blob/main/src/index.ts',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -104,7 +104,7 @@ describe('Platform Detection', () => {
 
       const platform = await detector.detect();
       expect(['github', 'monaco'].includes(platform)).toBe(true);
-      
+
       document.body.removeChild(mockFileContent);
     });
 
@@ -112,9 +112,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'gitlab.com',
-          pathname: '/project/repo'
+          pathname: '/project/repo',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -136,16 +136,14 @@ describe('Platform Detection', () => {
     it('should detect CodeMirror instances', async () => {
       // Mock CodeMirror
       (window as any).CodeMirror = {
-        instances: [
-          { getValue: () => 'function test() {}' }
-        ]
+        instances: [{ getValue: () => 'function test() {}' }],
       };
 
       // Clear Monaco to test CodeMirror specifically
       (window as any).monaco = undefined;
       Object.defineProperty(window, 'location', {
         value: { hostname: 'example.com' },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -162,11 +160,11 @@ describe('Platform Detection', () => {
       // Clear other editors
       (window as any).monaco = undefined;
       (window as any).CodeMirror = undefined;
-      
+
       // Use a CodeMirror-friendly domain
       Object.defineProperty(window, 'location', {
         value: { hostname: 'jsfiddle.net', pathname: '/abc123' },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -179,7 +177,7 @@ describe('Platform Detection', () => {
 
       const platform = await detector.detect();
       expect(['codemirror', 'unknown'].includes(platform)).toBe(true); // CodeMirror DOM detection may vary
-      
+
       document.body.removeChild(mockCodeMirror);
     });
   });
@@ -189,9 +187,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'vscode.dev',
-          pathname: '/github/microsoft/vscode'
+          pathname: '/github/microsoft/vscode',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -205,9 +203,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'github.dev',
-          pathname: '/facebook/react'
+          pathname: '/facebook/react',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -223,9 +221,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'stackblitz.com',
-          pathname: '/edit/react-project'
+          pathname: '/edit/react-project',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -241,9 +239,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'codepen.io',
-          pathname: '/pen/abcdef'
+          pathname: '/pen/abcdef',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -259,7 +257,7 @@ describe('Platform Detection', () => {
 
       const platform = await detector.detect();
       expect(platform).toBe('codepen'); // CodePen should be detected specifically
-      
+
       document.body.removeChild(mockCodePen);
     });
   });
@@ -271,18 +269,18 @@ describe('Platform Detection', () => {
           getModels: vi.fn().mockReturnValue([
             {
               uri: { path: '/test.ts' },
-              getValue: () => 'const test: number = 42;'
+              getValue: () => 'const test: number = 42;',
             },
             {
               uri: { path: '/utils.js' },
-              getValue: () => 'function utils() { return true; }'
-            }
-          ])
-        }
+              getValue: () => 'function utils() { return true; }',
+            },
+          ]),
+        },
       };
 
       const context = detector.extractContext();
-      
+
       // In test environment, we may not extract actual files
       expect(context.platform).toBe('monaco');
       expect(context.structure).toBeDefined();
@@ -293,9 +291,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'github.com',
-          pathname: '/facebook/react/blob/main/package.json'
+          pathname: '/facebook/react/blob/main/package.json',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -308,11 +306,11 @@ describe('Platform Detection', () => {
       document.body.appendChild(mockCode);
 
       const context = detector.extractContext();
-      
+
       expect(context.platform).toBe('github');
       expect(context.structure).toBeDefined();
       // Note: totalFiles may be 0 in mock environment
-      
+
       document.body.removeChild(mockCode);
     });
 
@@ -323,7 +321,7 @@ describe('Platform Detection', () => {
       });
 
       const context = detector.extractContext();
-      
+
       // Should return valid context even with errors
       expect(context).toHaveProperty('platform');
       expect(context).toHaveProperty('structure');
@@ -336,7 +334,7 @@ describe('Platform Detection', () => {
       const startTime = performance.now();
       detector.detectPlatform();
       const endTime = performance.now();
-      
+
       const duration = endTime - startTime;
       expect(duration).toBeLessThan(50); // Should be very fast
     });
@@ -345,7 +343,7 @@ describe('Platform Detection', () => {
       const startTime = performance.now();
       detector.extractContext();
       const endTime = performance.now();
-      
+
       const duration = endTime - startTime;
       expect(duration).toBeLessThan(200); // Should be under 200ms
     });
@@ -358,7 +356,7 @@ describe('Platform Detection', () => {
       (window as any).CodeMirror = undefined;
       Object.defineProperty(window, 'location', {
         value: { hostname: 'unknown-site.com' },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -376,9 +374,9 @@ describe('Platform Detection', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: '',
-          pathname: ''
+          pathname: '',
         },
-        configurable: true
+        configurable: true,
       });
 
       // Recreate detector with new location
@@ -392,20 +390,22 @@ describe('Platform Detection', () => {
   describe('Race Condition Prevention', () => {
     it('handles concurrent detection without races', async () => {
       const detector = new PlatformDetector();
-      
+
       // Clear any previous telemetry data
       vi.clearAllMocks();
-      
+
       // Launch 10 concurrent detections
-      const promises = Array(10).fill(0).map(() => detector.detect());
-      
+      const promises = Array(10)
+        .fill(0)
+        .map(() => detector.detect());
+
       // All should return same result
       const results = await Promise.all(promises);
       const firstResult = results[0];
-      
+
       // Verify all results are identical (no race condition)
-      expect(results.every(r => r === firstResult)).toBe(true);
-      
+      expect(results.every((r) => r === firstResult)).toBe(true);
+
       // Verify detection logic was optimized (cached results used)
       expect(results).toHaveLength(10);
       expect(typeof firstResult).toBe('string');
@@ -413,24 +413,24 @@ describe('Platform Detection', () => {
 
     it('caches results for 5 seconds', async () => {
       const detector = new PlatformDetector();
-      
+
       // First detection
       const result1 = await detector.detect();
-      
+
       // Second detection should use cache
       const result2 = await detector.detect();
-      
+
       expect(result1).toBe(result2);
       expect(detector.getCached()).toBe(result1);
     });
 
     it('invalidates cache properly', async () => {
       const detector = new PlatformDetector();
-      
+
       // Get initial result and cache it
       const result1 = await detector.detect();
       expect(detector.getCached()).toBe(result1);
-      
+
       // Invalidate cache
       detector.invalidateCache();
       expect(detector.getCached()).toBe(null);
@@ -439,23 +439,19 @@ describe('Platform Detection', () => {
     it('prevents multiple simultaneous detections', async () => {
       const detector = new PlatformDetector();
       let detectionCount = 0;
-      
+
       // Mock the performDetection to count calls
       const originalPerformDetection = (detector as any).performDetection;
-      (detector as any).performDetection = async function() {
+      (detector as any).performDetection = async function () {
         detectionCount++;
         return originalPerformDetection.call(this);
       };
-      
+
       // Launch concurrent detections
-      const promises = [
-        detector.detect(),
-        detector.detect(),
-        detector.detect()
-      ];
-      
+      const promises = [detector.detect(), detector.detect(), detector.detect()];
+
       await Promise.all(promises);
-      
+
       // Should only perform detection once due to promise reuse
       expect(detectionCount).toBe(1);
     });

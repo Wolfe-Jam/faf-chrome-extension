@@ -2,7 +2,7 @@
  * Service Worker Tests - Mission-Critical Background Process Testing
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Service Worker Core Functions', () => {
   beforeEach(() => {
@@ -14,9 +14,9 @@ describe('Service Worker Core Functions', () => {
       const validMessage = {
         type: 'EXTRACT_CONTEXT',
         timestamp: Date.now(),
-        source: 'popup'
+        source: 'popup',
       };
-      
+
       // This tests the message structure that the service worker expects
       expect(validMessage).toHaveProperty('type');
       expect(validMessage).toHaveProperty('timestamp');
@@ -29,7 +29,7 @@ describe('Service Worker Core Functions', () => {
         { type: 'INVALID_TYPE' },
         { timestamp: Date.now() },
         { source: 'popup' },
-        {}
+        {},
       ];
 
       for (const msg of invalidMessages) {
@@ -37,7 +37,7 @@ describe('Service Worker Core Functions', () => {
         expect(msg).not.toMatchObject({
           type: expect.stringMatching(/^(EXTRACT_CONTEXT|GET_STATUS)$/),
           timestamp: expect.any(Number),
-          source: expect.stringMatching(/^(popup|content)$/)
+          source: expect.stringMatching(/^(popup|content)$/),
         });
       }
     });
@@ -56,20 +56,21 @@ describe('Service Worker Core Functions', () => {
         setTimeout(() => reject(new Error('Operation timeout')), 300);
       });
 
-      await expect(Promise.race([mockSlowOperation(), timeoutPromise]))
-        .rejects.toThrow('Operation timeout');
+      await expect(Promise.race([mockSlowOperation(), timeoutPromise])).rejects.toThrow(
+        'Operation timeout'
+      );
     });
 
     it('should handle Chrome API errors', async () => {
       // Mock Chrome API failure
-      chrome.tabs.query = vi.fn().mockImplementation((query, callback) => {
+      chrome.tabs.query = vi.fn().mockImplementation((_query, callback) => {
         chrome.runtime.lastError = { message: 'Extension context invalidated' };
         callback([]);
       });
 
       // Test error handling
       try {
-        const tabs = await new Promise((resolve, reject) => {
+        const _tabs = await new Promise((resolve, reject) => {
           chrome.tabs.query({}, (result) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
@@ -104,16 +105,16 @@ describe('Service Worker Core Functions', () => {
 
     it('should cleanup completed extractions', () => {
       const activeExtractions = new Map();
-      
+
       // Add some extractions
       activeExtractions.set(1, { tabId: 1, startTime: Date.now() });
       activeExtractions.set(2, { tabId: 2, startTime: Date.now() });
-      
+
       expect(activeExtractions.size).toBe(2);
-      
+
       // Simulate completion
       activeExtractions.delete(1);
-      
+
       expect(activeExtractions.size).toBe(1);
       expect(activeExtractions.has(1)).toBe(false);
       expect(activeExtractions.has(2)).toBe(true);
@@ -124,16 +125,16 @@ describe('Service Worker Core Functions', () => {
     it('should update badge with correct colors', async () => {
       const testCases = [
         { score: 95, expectedColor: '#FF6B35' }, // High - Orange
-        { score: 70, expectedColor: '#5CE1E6' }, // Medium - Cyan  
-        { score: 25, expectedColor: '#0A0A0A' }  // Low - Black
+        { score: 70, expectedColor: '#5CE1E6' }, // Medium - Cyan
+        { score: 25, expectedColor: '#0A0A0A' }, // Low - Black
       ];
 
-      chrome.action.setBadgeText = vi.fn().mockImplementation((options, callback) => {
-        callback && callback();
+      chrome.action.setBadgeText = vi.fn().mockImplementation((_options, callback) => {
+        callback?.();
       });
-      
-      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((options, callback) => {
-        callback && callback();
+
+      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((_options, callback) => {
+        callback?.();
       });
 
       for (const { score, expectedColor } of testCases) {
@@ -141,20 +142,20 @@ describe('Service Worker Core Functions', () => {
         await new Promise<void>((resolve) => {
           chrome.action.setBadgeText({ text: `${score}%` }, resolve);
         });
-        
+
         await new Promise<void>((resolve) => {
           chrome.action.setBadgeBackgroundColor({ color: expectedColor }, resolve);
         });
 
         expect(chrome.action.setBadgeText).toHaveBeenCalledWith(
-          { text: `${score}%` }, 
+          { text: `${score}%` },
           expect.any(Function)
         );
         expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith(
-          { color: expectedColor }, 
+          { color: expectedColor },
           expect.any(Function)
         );
-        
+
         vi.clearAllMocks();
       }
     });
@@ -162,9 +163,9 @@ describe('Service Worker Core Functions', () => {
 
   describe('Storage Operations', () => {
     it('should handle storage quota errors', async () => {
-      chrome.storage.local.set = vi.fn().mockImplementation((data, callback) => {
+      chrome.storage.local.set = vi.fn().mockImplementation((_data, callback) => {
         chrome.runtime.lastError = { message: 'QUOTA_EXCEEDED' };
-        callback && callback();
+        callback?.();
       });
 
       try {
@@ -186,27 +187,33 @@ describe('Service Worker Core Functions', () => {
 
   describe('Notification System', () => {
     it('should create notifications for errors', async () => {
-      chrome.notifications.create = vi.fn().mockImplementation((options, callback) => {
-        callback && callback('notification-id');
+      chrome.notifications.create = vi.fn().mockImplementation((_options, callback) => {
+        callback?.('notification-id');
       });
 
       await new Promise<void>((resolve) => {
-        chrome.notifications.create({
+        chrome.notifications.create(
+          {
+            type: 'basic',
+            iconUrl: 'icon128.png',
+            title: 'FAF Error',
+            message: 'Extraction failed',
+            priority: 2,
+          },
+          resolve
+        );
+      });
+
+      expect(chrome.notifications.create).toHaveBeenCalledWith(
+        {
           type: 'basic',
           iconUrl: 'icon128.png',
           title: 'FAF Error',
           message: 'Extraction failed',
-          priority: 2
-        }, resolve);
-      });
-
-      expect(chrome.notifications.create).toHaveBeenCalledWith({
-        type: 'basic',
-        iconUrl: 'icon128.png',
-        title: 'FAF Error',
-        message: 'Extraction failed',
-        priority: 2
-      }, expect.any(Function));
+          priority: 2,
+        },
+        expect.any(Function)
+      );
     });
   });
 
@@ -214,20 +221,20 @@ describe('Service Worker Core Functions', () => {
     it('should cleanup stale extractions', () => {
       const activeExtractions = new Map();
       const now = Date.now();
-      
+
       // Add some extractions with different ages
       activeExtractions.set(1, { tabId: 1, startTime: now - 400000 }); // Old
-      activeExtractions.set(2, { tabId: 2, startTime: now - 100 });    // Recent
-      
+      activeExtractions.set(2, { tabId: 2, startTime: now - 100 }); // Recent
+
       // Simulate cleanup of extractions older than 5 minutes
       const FIVE_MINUTES = 5 * 60 * 1000;
-      
+
       for (const [id, extraction] of activeExtractions.entries()) {
         if (now - extraction.startTime > FIVE_MINUTES) {
           activeExtractions.delete(id);
         }
       }
-      
+
       expect(activeExtractions.size).toBe(1);
       expect(activeExtractions.has(1)).toBe(false);
       expect(activeExtractions.has(2)).toBe(true);

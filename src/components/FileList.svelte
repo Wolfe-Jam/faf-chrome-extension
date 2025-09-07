@@ -1,18 +1,18 @@
 <script lang="ts">
-  import type { FAFFile } from '@/core/types';
-  
-  export let files: FAFFile[];
-  export let maxDisplay: number = 5;
+import type { FAFFile } from '@/core/types';
 
-  // Format file size
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
+export let files: FAFFile[];
+export const maxDisplay: number = 5;
 
-  $: displayFiles = files.slice(0, maxDisplay);
-  $: remainingCount = Math.max(0, files.length - maxDisplay);
+// Format file size
+function _formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+$: displayFiles = files.slice(0, maxDisplay);
+$: remainingCount = Math.max(0, files.length - maxDisplay);
 </script>
 
 <div class="file-list">

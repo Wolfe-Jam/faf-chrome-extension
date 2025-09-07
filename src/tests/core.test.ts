@@ -2,10 +2,10 @@
  * Core FAF Engine Tests - Comprehensive test coverage
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAFEngine } from '@/core/engine';
 import { ScoringEngine } from '@/core/scorer';
-import type { Platform, CodeContext } from '@/core/types';
+import type { CodeContext, Platform } from '@/core/types';
 import { createScore, getScoreValue, isValidPlatform } from '@/core/types';
 
 describe('FAF Engine', () => {
@@ -20,8 +20,8 @@ describe('FAF Engine', () => {
       // Mock Monaco presence
       (globalThis as any).monaco = {
         editor: {
-          getModels: () => []
-        }
+          getModels: () => [],
+        },
       };
 
       // This would call the actual detection logic
@@ -34,9 +34,9 @@ describe('FAF Engine', () => {
       Object.defineProperty(window, 'location', {
         value: {
           hostname: 'github.com',
-          pathname: '/facebook/react'
+          pathname: '/facebook/react',
         },
-        configurable: true
+        configurable: true,
       });
 
       expect(window.location.hostname).toContain('github.com');
@@ -46,7 +46,7 @@ describe('FAF Engine', () => {
     it('should detect CodeMirror', () => {
       // Mock CodeMirror presence
       (globalThis as any).CodeMirror = {
-        instances: []
+        instances: [],
       };
 
       expect((globalThis as any).CodeMirror).toBeDefined();
@@ -56,7 +56,7 @@ describe('FAF Engine', () => {
   describe('Context Extraction', () => {
     it('should extract context successfully', async () => {
       const result = await engine.extract();
-      
+
       expect(result).toHaveProperty('success');
       if (result.success) {
         expect(result.faf).toHaveProperty('version');
@@ -67,8 +67,13 @@ describe('FAF Engine', () => {
 
     it('should handle extraction timeout', async () => {
       // Create engine with short timeout
-      const shortTimeoutEngine = new FAFEngine({ timeout: 1, includeContent: true, maxFileSize: 1000, maxFiles: 10 });
-      
+      const shortTimeoutEngine = new FAFEngine({
+        timeout: 1,
+        includeContent: true,
+        maxFileSize: 1000,
+        maxFiles: 10,
+      });
+
       // Mock slow operation
       vi.spyOn(shortTimeoutEngine, 'extract').mockImplementation(() => {
         return new Promise((resolve) => {
@@ -79,7 +84,7 @@ describe('FAF Engine', () => {
       });
 
       const result = await shortTimeoutEngine.extract();
-      
+
       // Should timeout and return error
       if (!result.success) {
         expect(result.error).toContain('timeout');
@@ -94,7 +99,7 @@ describe('FAF Engine', () => {
       });
 
       const result = await engine.extract();
-      
+
       if (!result.success) {
         expect(result.code).toBe('FALLBACK_MODE');
         expect(result.error).toContain('minimal context available');
@@ -107,7 +112,7 @@ describe('FAF Engine', () => {
       const startTime = performance.now();
       await engine.extract();
       const endTime = performance.now();
-      
+
       const duration = endTime - startTime;
       expect(duration).toBeLessThan(300);
     });
@@ -128,28 +133,28 @@ describe('Scoring Engine', () => {
         directories: [],
         entryPoints: [],
         totalFiles: 0,
-        totalLines: 0
+        totalLines: 0,
       },
       dependencies: {
         runtime: {
           language: 'TypeScript',
           version: '5.3.0',
-          packageManager: 'npm'
+          packageManager: 'npm',
         },
         packages: [],
-        lockFile: null
+        lockFile: null,
       },
       environment: {
         variables: [],
-        configFiles: []
+        configFiles: [],
       },
       metadata: {
         extractionTime: 150,
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         url: 'https://github.com/facebook/react',
-        userAgent: 'test-agent'
-      }
+        userAgent: 'test-agent',
+      },
     };
   });
 
@@ -157,21 +162,21 @@ describe('Scoring Engine', () => {
     it('should calculate deterministic scores', () => {
       const score1 = scorer.calculateScore(mockContext);
       const score2 = scorer.calculateScore(mockContext);
-      
+
       expect(getScoreValue(score1)).toBe(getScoreValue(score2));
     });
 
     it('should respect score boundaries', () => {
       const score = scorer.calculateScore(mockContext);
       const value = getScoreValue(score);
-      
+
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(100);
     });
 
     it('should provide score breakdown', () => {
       const breakdown = scorer.getScoreBreakdown(mockContext);
-      
+
       expect(breakdown).toHaveProperty('total');
       expect(breakdown).toHaveProperty('breakdown');
       expect(breakdown.breakdown).toHaveProperty('platform');
@@ -185,7 +190,7 @@ describe('Scoring Engine', () => {
       { platform: 'monaco', expectedMinScore: 60 },
       { platform: 'github', expectedMinScore: 45 },
       { platform: 'codemirror', expectedMinScore: 50 },
-      { platform: 'unknown', expectedMinScore: 0 }
+      { platform: 'unknown', expectedMinScore: 0 },
     ];
 
     platformScores.forEach(({ platform, expectedMinScore }) => {
@@ -193,7 +198,7 @@ describe('Scoring Engine', () => {
         const context = { ...mockContext, platform };
         const score = scorer.calculateScore(context);
         const value = getScoreValue(score);
-        
+
         expect(value).toBeGreaterThanOrEqual(expectedMinScore);
       });
     });
@@ -210,7 +215,7 @@ describe('Type Utilities', () => {
     it('should clamp invalid scores', () => {
       const tooHigh = createScore(150);
       const tooLow = createScore(-10);
-      
+
       expect(getScoreValue(tooHigh)).toBe(100);
       expect(getScoreValue(tooLow)).toBe(0);
     });

@@ -4,8 +4,8 @@
  */
 
 import { FafEngine, WebAdapter } from '@faf/engine';
-import type { CodeContext, Score } from '@/core/types';
 import type { ScoringEngine } from '@/core/scorer';
+import type { CodeContext, Score } from '@/core/types';
 
 interface ExtractedFile {
   path: string;
@@ -14,13 +14,12 @@ interface ExtractedFile {
 }
 
 export class RealFafEngineIntegration {
-  private engine: FafEngine;
   private fallbackScorer?: ScoringEngine;
 
   constructor(fallbackScorer?: ScoringEngine) {
     this.engine = new FafEngine({
       platform: 'web',
-      adapter: new WebAdapter()
+      adapter: new WebAdapter(),
     });
     this.fallbackScorer = fallbackScorer;
   }
@@ -32,27 +31,27 @@ export class RealFafEngineIntegration {
     try {
       // Convert Chrome extension context to FAF engine format
       const files = this.contextToFiles(context);
-      
+
       // Create WebAdapter with extracted files
       const webAdapter = new WebAdapter({ files });
       const engine = new FafEngine({
         platform: 'web',
-        adapter: webAdapter
+        adapter: webAdapter,
       });
 
       // Generate context using real engine
       const result = await engine.generateContext('/');
-      
+
       // Convert FAF score to Chrome extension score format
       return this.convertScore(result.score.totalScore);
     } catch (error) {
       console.warn('Real FAF engine failed, using fallback scorer:', error);
-      
+
       // Use fallback scorer if available, otherwise platform-based scoring
       if (this.fallbackScorer) {
         return this.fallbackScorer.calculateScore(context);
       }
-      
+
       return this.fallbackPlatformScore(context);
     }
   }
@@ -64,12 +63,12 @@ export class RealFafEngineIntegration {
     const files: ExtractedFile[] = [];
 
     // Add detected files
-    context.structure.files.forEach(file => {
-      if (file.content && file.content.trim()) {
+    context.structure.files.forEach((file) => {
+      if (file.content?.trim()) {
         files.push({
           path: file.path,
           content: file.content,
-          language: file.language
+          language: file.language,
         });
       }
     });
@@ -79,13 +78,13 @@ export class RealFafEngineIntegration {
       const packageJson = {
         name: this.inferProjectName(context),
         version: '1.0.0',
-        dependencies: this.createDependenciesObject(context.dependencies.packages)
+        dependencies: this.createDependenciesObject(context.dependencies.packages),
       };
-      
+
       files.push({
         path: 'package.json',
         content: JSON.stringify(packageJson, null, 2),
-        language: 'json'
+        language: 'json',
       });
     }
 
@@ -95,7 +94,7 @@ export class RealFafEngineIntegration {
       files.push({
         path: 'README.md',
         content: readme,
-        language: 'markdown'
+        language: 'markdown',
       });
     }
 
@@ -118,41 +117,41 @@ export class RealFafEngineIntegration {
     if (context.platform === 'monaco') {
       const fileCount = context.structure.totalFiles;
       const lineCount = context.structure.totalLines;
-      
+
       let score = 85; // Base score for Monaco Editor
-      
+
       // Bonus for file count
       if (fileCount > 10) score += 10;
       else if (fileCount > 5) score += 5;
-      
+
       // Bonus for substantial code
       if (lineCount > 1000) score += 5;
-      
+
       return Math.min(100, score) as Score;
     }
 
     // For GitHub repos, use moderate scoring
     if (context.platform === 'github') {
       let score = 75; // Base GitHub score
-      
+
       if (context.dependencies.packages.length > 10) score += 15;
       else if (context.dependencies.packages.length > 0) score += 10;
-      
+
       if (context.structure.totalFiles > 20) score += 10;
-      
+
       return Math.min(100, score) as Score;
     }
 
     // Default platform scores
     const platformScores: Record<string, number> = {
-      'stackblitz': 80,
-      'codesandbox': 75,
+      stackblitz: 80,
+      codesandbox: 75,
       'vscode-web': 70,
-      'codemirror': 60,
-      'codepen': 50,
-      'localhost': 45,
+      codemirror: 60,
+      codepen: 50,
+      localhost: 45,
       'has-code': 30,
-      'unknown': 20
+      unknown: 20,
     };
 
     return (platformScores[context.platform] || 20) as Score;
@@ -165,10 +164,10 @@ export class RealFafEngineIntegration {
     // Try to get name from URL
     const url = window.location.href;
     if (url.includes('github.com')) {
-      const match = url.match(/github\.com\/([^\/]+)\/([^\/]+)/);
+      const match = url.match(/github\.com\/([^/]+)\/([^/]+)/);
       if (match) return match[2];
     }
-    
+
     // Default based on platform
     return `${context.platform}-project`;
   }
@@ -176,9 +175,11 @@ export class RealFafEngineIntegration {
   /**
    * Create dependencies object from package list
    */
-  private createDependenciesObject(packages: Array<{ name: string; version?: string }>): Record<string, string> {
+  private createDependenciesObject(
+    packages: Array<{ name: string; version?: string }>
+  ): Record<string, string> {
     const deps: Record<string, string> = {};
-    packages.forEach(pkg => {
+    packages.forEach((pkg) => {
       deps[pkg.name] = pkg.version || 'latest';
     });
     return deps;
@@ -190,7 +191,7 @@ export class RealFafEngineIntegration {
   private generateSyntheticReadme(context: CodeContext): string {
     const projectName = this.inferProjectName(context);
     const platform = context.platform.charAt(0).toUpperCase() + context.platform.slice(1);
-    
+
     return `# ${projectName}
 
 ${platform} project detected by FAF Chrome Extension.
@@ -202,7 +203,7 @@ ${platform} project detected by FAF Chrome Extension.
 - Dependencies: ${context.dependencies.packages.length}
 
 ## Languages Detected
-${context.structure.files.map(f => `- ${f.language}`).join('\n')}
+${context.structure.files.map((f) => `- ${f.language}`).join('\n')}
 
 *Generated by FAF Chrome Extension*
 `;
@@ -213,15 +214,17 @@ ${context.structure.files.map(f => `- ${f.language}`).join('\n')}
    */
   async testEngine(): Promise<boolean> {
     try {
-      const testFiles = [{
-        path: 'test.js',
-        content: 'console.log("Hello FAF");'
-      }];
+      const testFiles = [
+        {
+          path: 'test.js',
+          content: 'console.log("Hello FAF");',
+        },
+      ];
 
       const webAdapter = new WebAdapter({ files: testFiles });
       const engine = new FafEngine({
         platform: 'web',
-        adapter: webAdapter
+        adapter: webAdapter,
       });
 
       const result = await engine.generateContext('/');

@@ -22,8 +22,8 @@ export class ClipboardManager {
    * Copy FAF content to clipboard in the standard .faf format
    */
   static async copyFAFContent(faf: FAFFile): Promise<void> {
-    const content = this.formatFAFContent(faf);
-    await this.writeToClipboard(content);
+    const content = ClipboardManager.formatFAFContent(faf);
+    await ClipboardManager.writeToClipboard(content);
   }
 
   /**
@@ -32,13 +32,13 @@ export class ClipboardManager {
   private static async writeToClipboard(text: string): Promise<void> {
     try {
       // Try modern Clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
+      if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
         return;
       }
 
       // Fallback to execCommand method
-      this.execCommandFallback(text);
+      ClipboardManager.execCommandFallback(text);
     } catch (error) {
       if (error instanceof Error && error.name === 'NotAllowedError') {
         throw new ClipboardError('Clipboard access denied', 'PERMISSION_DENIED');
@@ -55,7 +55,7 @@ export class ClipboardManager {
    */
   private static execCommandFallback(text: string): void {
     const textarea = document.createElement('textarea');
-    
+
     try {
       textarea.value = text;
       textarea.style.position = 'fixed';
@@ -63,11 +63,11 @@ export class ClipboardManager {
       textarea.style.top = '-9999px';
       textarea.style.opacity = '0';
       textarea.setAttribute('readonly', '');
-      
+
       document.body.appendChild(textarea);
       textarea.select();
       textarea.setSelectionRange(0, text.length);
-      
+
       const success = document.execCommand('copy');
       if (!success) {
         throw new ClipboardError('execCommand copy failed', 'WRITE_FAILED');
@@ -84,8 +84,8 @@ export class ClipboardManager {
    */
   private static formatFAFContent(faf: FAFFile): string {
     const score = faf.score as number;
-    const confidence = this.getConfidenceMessage(score);
-    
+    const confidence = ClipboardManager.getConfidenceMessage(score);
+
     return `.faf Context
 URL: ${faf.context.metadata.url}
 Platform: ${faf.context.platform}
@@ -93,9 +93,9 @@ Score: ${score}%
 Extracted: ${faf.generated}
 
 Detection
-Code blocks found: ${this.getCodeBlockCount(faf)}
-Package.json detected: ${this.hasPackageJson(faf)}
-Environment vars: ${this.hasEnvironmentVars(faf)}
+Code blocks found: ${ClipboardManager.getCodeBlockCount(faf)}
+Package.json detected: ${ClipboardManager.hasPackageJson(faf)}
+Environment vars: ${ClipboardManager.hasEnvironmentVars(faf)}
 
 AI Instructions
 Context extracted from ${faf.context.platform} with ${score}% confidence.
@@ -130,19 +130,21 @@ ${JSON.stringify(faf.context, null, 2)}`;
 
   private static getCodeBlockCount(faf: FAFFile): number {
     // Extract from context or calculate based on files
-    return faf.context.structure.files.length > 0 
-      ? faf.context.structure.files.length 
-      : 0;
+    return faf.context.structure.files.length > 0 ? faf.context.structure.files.length : 0;
   }
 
   private static hasPackageJson(faf: FAFFile): boolean {
-    return faf.context.dependencies.packages.length > 0 ||
-           faf.context.structure.files.some(file => file.path.includes('package.json'));
+    return (
+      faf.context.dependencies.packages.length > 0 ||
+      faf.context.structure.files.some((file) => file.path.includes('package.json'))
+    );
   }
 
   private static hasEnvironmentVars(faf: FAFFile): boolean {
-    return faf.context.environment.variables.length > 0 ||
-           faf.context.environment.configFiles.some(file => file.includes('.env'));
+    return (
+      faf.context.environment.variables.length > 0 ||
+      faf.context.environment.configFiles.some((file) => file.includes('.env'))
+    );
   }
 
   /**
@@ -171,7 +173,7 @@ ${JSON.stringify(faf.context, null, 2)}`;
    * Get a preview of clipboard content (first 200 chars)
    */
   static getContentPreview(faf: FAFFile): string {
-    const content = this.formatFAFContent(faf);
+    const content = ClipboardManager.formatFAFContent(faf);
     return content.length > 200 ? `${content.substring(0, 200)}...` : content;
   }
 }

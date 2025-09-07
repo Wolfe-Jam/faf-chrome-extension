@@ -3,18 +3,30 @@
  * Zero any types, complete type coverage
  */
 
-export const PLATFORMS = ['github', 'gitlab', 'monaco', 'codemirror', 'vscode-web', 'stackblitz', 'codesandbox', 'codepen', 'localhost', 'has-code', 'unknown'] as const;
-export type Platform = typeof PLATFORMS[number];
+export const PLATFORMS = [
+  'github',
+  'gitlab',
+  'monaco',
+  'codemirror',
+  'vscode-web',
+  'stackblitz',
+  'codesandbox',
+  'codepen',
+  'localhost',
+  'has-code',
+  'unknown',
+] as const;
+export type Platform = (typeof PLATFORMS)[number];
 
 export const BRAND_COLORS = {
   orange: '#FF6B35',
   cream: '#FFF8F0',
   cyan: '#5CE1E6',
-  black: '#0A0A0A'
+  black: '#0A0A0A',
 } as const;
 
 export const CONFIDENCE_LEVELS = ['VERY_HIGH', 'HIGH', 'GOOD', 'MODERATE', 'LOW'] as const;
-export type ConfidenceLevel = typeof CONFIDENCE_LEVELS[number];
+export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
 
 export interface BadgeColorConfig {
   readonly bg: string;
@@ -26,7 +38,7 @@ export const BADGE_COLORS: Record<ConfidenceLevel, BadgeColorConfig> = {
   HIGH: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },
   GOOD: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
   MODERATE: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
-  LOW: { bg: BRAND_COLORS.black, text: BRAND_COLORS.orange }
+  LOW: { bg: BRAND_COLORS.black, text: BRAND_COLORS.orange },
 } as const;
 
 export type Score = number & { readonly __brand: 'Score' };
@@ -120,26 +132,32 @@ export interface FAFFile {
   readonly size: number;
 }
 
-export type ExtractionResult = {
-  readonly success: true;
-  readonly faf: FAFFile;
-} | {
-  readonly success: false;
-  readonly error: string;
-  readonly code: 'PLATFORM_NOT_SUPPORTED' | 'EXTRACTION_TIMEOUT' | 'DOM_ACCESS_ERROR' | 'UNKNOWN_ERROR';
-};
+export type ExtractionResult =
+  | {
+      readonly success: true;
+      readonly faf: FAFFile;
+    }
+  | {
+      readonly success: false;
+      readonly error: string;
+      readonly code:
+        | 'PLATFORM_NOT_SUPPORTED'
+        | 'EXTRACTION_TIMEOUT'
+        | 'DOM_ACCESS_ERROR'
+        | 'UNKNOWN_ERROR';
+    };
 
 export const MESSAGE_TYPES = [
   'EXTRACT_CONTEXT',
-  'CONTEXT_EXTRACTED', 
+  'CONTEXT_EXTRACTED',
   'COPY_TO_CLIPBOARD',
   'UPDATE_BADGE',
   'ERROR',
   'PING',
-  'PONG'
+  'PONG',
 ] as const;
 
-export type MessageType = typeof MESSAGE_TYPES[number];
+export type MessageType = (typeof MESSAGE_TYPES)[number];
 
 export interface BaseMessage {
   readonly type: MessageType;
@@ -175,9 +193,9 @@ export interface ErrorMessage extends BaseMessage {
   };
 }
 
-export type Message = 
+export type Message =
   | ExtractContextMessage
-  | ContextExtractedMessage 
+  | ContextExtractedMessage
   | CopyToClipboardMessage
   | UpdateBadgeMessage
   | ErrorMessage;

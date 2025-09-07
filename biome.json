@@ -1,8 +1,6 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.4.1/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
+  "$schema": "https://biomejs.dev/schemas/2.2.3/schema.json",
+  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
@@ -12,14 +10,12 @@
         "noParameterAssign": "error",
         "useConst": "error",
         "useExponentiationOperator": "error",
-        "useNumericLiterals": "error",
         "useTemplate": "error"
       },
       "correctness": {
         "noConstAssign": "error",
         "noGlobalObjectCalls": "error",
         "noInvalidConstructorSuper": "error",
-        "noNewSymbol": "error",
         "noNonoctalDecimalEscape": "error",
         "noPrecisionLoss": "error",
         "noSetterReturn": "error",
@@ -33,7 +29,9 @@
         "noUnusedVariables": "error",
         "useIsNan": "error",
         "useValidForDirection": "error",
-        "useYield": "error"
+        "useYield": "error",
+        "noInvalidBuiltinInstantiation": "error",
+        "useValidTypeof": "error"
       },
       "suspicious": {
         "noArrayIndexKey": "error",
@@ -64,7 +62,7 @@
         "noShadowRestrictedNames": "error",
         "noUnsafeNegation": "error",
         "useGetterReturn": "error",
-        "useValidTypeof": "error"
+        "noWith": "error"
       },
       "complexity": {
         "noBannedTypes": "error",
@@ -75,7 +73,7 @@
         "noUselessRename": "error",
         "noUselessSwitchCase": "error",
         "noUselessTypeConstraint": "error",
-        "noWith": "error"
+        "useNumericLiterals": "error"
       },
       "performance": {
         "noDelete": "warn"
@@ -89,13 +87,10 @@
     "indentWidth": 2,
     "lineWidth": 100,
     "lineEnding": "lf",
-    "ignore": [
-      "dist/**",
-      "node_modules/**",
-      "*.min.js"
-    ]
+    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!**/*.min.js"]
   },
   "javascript": {
+    "globals": ["chrome"],
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",
@@ -114,21 +109,19 @@
     }
   },
   "files": {
-    "include": [
-      "src/**/*",
-      "*.ts",
-      "*.tsx",
-      "*.js",
-      "*.jsx",
-      "*.json"
-    ],
-    "ignore": [
-      "dist/**",
-      "node_modules/**",
-      "build/**",
-      "coverage/**",
-      "*.min.js",
-      "*.d.ts"
+    "includes": [
+      "**/src/**/*",
+      "**/*.ts",
+      "**/*.tsx",
+      "**/*.js",
+      "**/*.jsx",
+      "**/*.json",
+      "!**/dist/**",
+      "!**/node_modules/**",
+      "!**/build/**",
+      "!**/coverage/**",
+      "!**/*.min.js",
+      "!**/*.d.ts"
     ]
   }
 }

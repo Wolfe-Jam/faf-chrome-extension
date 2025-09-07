@@ -1,158 +1,162 @@
 <script>
-  import { onMount } from 'svelte';
-  import { ChromeTabs, ChromeStorageAPI } from '../adapters/chrome';
-  import { telemetry } from '../core/telemetry';
-  import { ClipboardManager } from '../adapters/clipboard';
+import { onMount } from 'svelte';
+import { ChromeStorageAPI, ChromeTabs } from '../adapters/chrome';
+import { ClipboardManager } from '../adapters/clipboard';
+import { telemetry } from '../core/telemetry';
 
-  let extraction = null;
-  let isExtracting = false;
-  let error = null;
+let extraction = null;
+let isExtracting = false;
+let _error = null;
 
-  onMount(async () => {
-    console.log('FAF Popup mounted with Svelte!');
+onMount(async () => {
+  console.log('FAF Popup mounted with Svelte!');
 
-    const pingServiceWorker = async (retries = 5, delay = 100) => {
-      for (let i = 0; i < retries; i++) {
-        try {
-          const response = await chrome.runtime.sendMessage({ type: 'PING', source: 'popup', timestamp: Date.now() });
-          if (response && response.type === 'PONG') {
-            console.log('FAF Service Worker is active.');
-            return true;
-          }
-        } catch (e) {
-          console.error('FAF Popup: Ping attempt failed.', e);
-          if (i < retries - 1) {
-            console.warn(`FAF Ping failed (attempt ${i + 1}), retrying in ${delay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-          } else {
-            console.error('FAF Service worker did not respond after multiple retries.', e);
-            return false;
-          }
-        }
-      }
-      return false;
-    };
-
-    try {
-      const isServiceWorkerActive = await pingServiceWorker();
-      if (isServiceWorkerActive) {
-        error = null; // Clear any previous error
-        const stored = await ChromeStorageAPI.get(['lastExtraction']);
-        if (stored.lastExtraction) {
-          extraction = stored.lastExtraction;
-        }
-      } else {
-        error = "Could not connect to FAF background service. Please try reloading the extension.";
-      }
-    } catch (err) {
-      console.warn('Failed to load stored data:', err);
-      error = "An error occurred while loading initial data.";
-    }
-  });
-
-  async function handleExtract() {
-    if (isExtracting) return;
-
-    isExtracting = true;
-    error = null;
-
-    try {
-      // Track extraction attempt
-      await telemetry.track('user_action', {
-        action: 'extract_clicked',
-        timestamp: Date.now()
-      });
-
-      const activeTab = await ChromeTabs.getActive();
-      if (!activeTab?.id) {
-        throw new Error('No active tab found');
-      }
-
-      console.log('Sending message to content script on tab:', activeTab.id);
-
-      // Send message to content script for real extraction
-      const response = await chrome.tabs.sendMessage(activeTab.id, { 
-        type: 'EXTRACT_CONTEXT',
-        timestamp: Date.now(),
-        source: 'popup'
-      });
-
-      console.log('Got response:', response);
-
-      if (response?.success) {
-        extraction = response;
-        
-        // Store the extraction
-        await ChromeStorageAPI.set({ lastExtraction: response });
-
-        // Track success
-        await telemetry.track('extraction_complete', {
-          platform: response.faf.metadata.platform,
-          score: response.faf.score.total,
-          fileCount: response.faf.files.length
+  const pingServiceWorker = async (retries = 5, delay = 100) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const response = await chrome.runtime.sendMessage({
+          type: 'PING',
+          source: 'popup',
+          timestamp: Date.now(),
         });
-      } else {
-        throw new Error(response?.error || 'Extraction failed - no response from content script');
+        if (response && response.type === 'PONG') {
+          console.log('FAF Service Worker is active.');
+          return true;
+        }
+      } catch (e) {
+        console.error('FAF Popup: Ping attempt failed.', e);
+        if (i < retries - 1) {
+          console.warn(`FAF Ping failed (attempt ${i + 1}), retrying in ${delay}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          console.error('FAF Service worker did not respond after multiple retries.', e);
+          return false;
+        }
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
-      error = errorMessage;
-      console.error('Extraction error:', err);
-
-      // Track extraction error
-      await telemetry.track('extraction_error', {
-        error: errorMessage,
-        phase: 'popup_extract'
-      });
-    } finally {
-      isExtracting = false;
     }
-  }
+    return false;
+  };
 
-  async function handleCopy() {
-    if (!extraction?.success) return;
-
-    try {
-      // Use ClipboardManager for better compatibility
-      await ClipboardManager.copyFAFContent(extraction.faf);
-      
-      await telemetry.track('user_action', {
-        action: 'copy_to_clipboard',
-        score: extraction.faf.score
-      });
-
-      // Visual feedback
-      const button = document.querySelector('.copy-button');
-      if (button) {
-        const originalText = button.textContent;
-        button.textContent = '✓ Copied!';
-        setTimeout(() => {
-          button.textContent = originalText;
-        }, 2000);
+  try {
+    const isServiceWorkerActive = await pingServiceWorker();
+    if (isServiceWorkerActive) {
+      _error = null; // Clear any previous error
+      const stored = await ChromeStorageAPI.get(['lastExtraction']);
+      if (stored.lastExtraction) {
+        extraction = stored.lastExtraction;
       }
-    } catch (err) {
-      error = 'Failed to copy to clipboard';
+    } else {
+      _error = 'Could not connect to FAF background service. Please try reloading the extension.';
     }
+  } catch (err) {
+    console.warn('Failed to load stored data:', err);
+    _error = 'An error occurred while loading initial data.';
   }
+});
 
-  // Helper functions for formatting
-  function getScoreColor(score) {
-    if (score >= 90) return '#10b981'; // green
-    if (score >= 70) return '#3b82f6'; // blue  
-    if (score >= 50) return '#f59e0b'; // amber
-    return '#ef4444'; // red
-  }
+async function _handleExtract() {
+  if (isExtracting) return;
 
-  function formatSize(bytes) {
-    if (bytes < 1024) return `${bytes}B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-  }
+  isExtracting = true;
+  _error = null;
 
-  function formatTotalSize(files) {
-    const total = files.reduce((sum, file) => sum + file.content.length, 0);
-    return formatSize(total);
+  try {
+    // Track extraction attempt
+    await telemetry.track('user_action', {
+      action: 'extract_clicked',
+      timestamp: Date.now(),
+    });
+
+    const activeTab = await ChromeTabs.getActive();
+    if (!activeTab?.id) {
+      throw new Error('No active tab found');
+    }
+
+    console.log('Sending message to content script on tab:', activeTab.id);
+
+    // Send message to content script for real extraction
+    const response = await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'EXTRACT_CONTEXT',
+      timestamp: Date.now(),
+      source: 'popup',
+    });
+
+    console.log('Got response:', response);
+
+    if (response?.success) {
+      extraction = response;
+
+      // Store the extraction
+      await ChromeStorageAPI.set({ lastExtraction: response });
+
+      // Track success
+      await telemetry.track('extraction_complete', {
+        platform: response.faf.metadata.platform,
+        score: response.faf.score.total,
+        fileCount: response.faf.files.length,
+      });
+    } else {
+      throw new Error(response?.error || 'Extraction failed - no response from content script');
+    }
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Failed to extract context';
+    _error = errorMessage;
+    console.error('Extraction error:', err);
+
+    // Track extraction error
+    await telemetry.track('extraction_error', {
+      error: errorMessage,
+      phase: 'popup_extract',
+    });
+  } finally {
+    isExtracting = false;
   }
+}
+
+async function _handleCopy() {
+  if (!extraction?.success) return;
+
+  try {
+    // Use ClipboardManager for better compatibility
+    await ClipboardManager.copyFAFContent(extraction.faf);
+
+    await telemetry.track('user_action', {
+      action: 'copy_to_clipboard',
+      score: extraction.faf.score,
+    });
+
+    // Visual feedback
+    const button = document.querySelector('.copy-button');
+    if (button) {
+      const originalText = button.textContent;
+      button.textContent = '✓ Copied!';
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 2000);
+    }
+  } catch (_err) {
+    _error = 'Failed to copy to clipboard';
+  }
+}
+
+// Helper functions for formatting
+function _getScoreColor(score) {
+  if (score >= 90) return '#10b981'; // green
+  if (score >= 70) return '#3b82f6'; // blue
+  if (score >= 50) return '#f59e0b'; // amber
+  return '#ef4444'; // red
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function _formatTotalSize(files) {
+  const total = files.reduce((sum, file) => sum + file.content.length, 0);
+  return formatSize(total);
+}
 </script>
 
 <div class="popup">

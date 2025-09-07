@@ -2,16 +2,10 @@
  * Chrome Adapter Tests - Type-safe API wrapper validation
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { 
-  ChromeTabs, 
-  ChromeStorageAPI, 
-  ChromeAction, 
-  ChromeNotifications,
-  ChromeAPIError 
-} from '@/adapters/chrome';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ChromeAction, ChromeNotifications, ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
+import { ClipboardError, ClipboardManager } from '@/adapters/clipboard';
 import { FAFError } from '@/core/errors';
-import { ClipboardManager, ClipboardError } from '@/adapters/clipboard';
 import type { FAFFile, Score } from '@/core/types';
 
 describe('Chrome API Adapters', () => {
@@ -22,7 +16,7 @@ describe('Chrome API Adapters', () => {
   describe('ChromeTabs', () => {
     it('should get active tab successfully', async () => {
       const mockTab = { id: 1, url: 'https://github.com/test', title: 'Test', active: true };
-      chrome.tabs.query = vi.fn().mockImplementation((query, callback) => {
+      chrome.tabs.query = vi.fn().mockImplementation((_query, callback) => {
         callback([mockTab]);
       });
 
@@ -31,7 +25,7 @@ describe('Chrome API Adapters', () => {
     });
 
     it('should handle no active tab error', async () => {
-      chrome.tabs.query = vi.fn().mockImplementation((query, callback) => {
+      chrome.tabs.query = vi.fn().mockImplementation((_query, callback) => {
         callback([]);
       });
 
@@ -39,7 +33,7 @@ describe('Chrome API Adapters', () => {
     });
 
     it('should handle chrome.runtime.lastError', async () => {
-      chrome.tabs.query = vi.fn().mockImplementation((query, callback) => {
+      chrome.tabs.query = vi.fn().mockImplementation((_query, callback) => {
         chrome.runtime.lastError = { message: 'Tab access denied' };
         callback([]);
       });
@@ -51,8 +45,8 @@ describe('Chrome API Adapters', () => {
       const tabId = 1;
       const message = { type: 'TEST', timestamp: Date.now(), source: 'test' } as any;
 
-      chrome.tabs.sendMessage = vi.fn().mockImplementation((id, msg, callback) => {
-        callback && callback();
+      chrome.tabs.sendMessage = vi.fn().mockImplementation((_id, _msg, callback) => {
+        callback?.();
       });
 
       await expect(ChromeTabs.sendMessage(tabId, message)).resolves.not.toThrow();
@@ -64,11 +58,11 @@ describe('Chrome API Adapters', () => {
     it('should store and retrieve data', async () => {
       const testData = { lastExtraction: { success: true }, timestamp: Date.now() };
 
-      chrome.storage.local.set = vi.fn().mockImplementation((data, callback) => {
-        callback && callback();
+      chrome.storage.local.set = vi.fn().mockImplementation((_data, callback) => {
+        callback?.();
       });
 
-      chrome.storage.local.get = vi.fn().mockImplementation((keys, callback) => {
+      chrome.storage.local.get = vi.fn().mockImplementation((_keys, callback) => {
         callback(testData);
       });
 
@@ -79,9 +73,9 @@ describe('Chrome API Adapters', () => {
     });
 
     it('should handle storage quota errors', async () => {
-      chrome.storage.local.set = vi.fn().mockImplementation((data, callback) => {
+      chrome.storage.local.set = vi.fn().mockImplementation((_data, callback) => {
         chrome.runtime.lastError = { message: 'Storage quota exceeded' };
-        callback && callback();
+        callback?.();
       });
 
       await expect(ChromeStorageAPI.set({ test: 'data' })).rejects.toThrow(FAFError);
@@ -89,7 +83,7 @@ describe('Chrome API Adapters', () => {
 
     it('should clear storage', async () => {
       chrome.storage.local.clear = vi.fn().mockImplementation((callback) => {
-        callback && callback();
+        callback?.();
       });
 
       await expect(ChromeStorageAPI.clear()).resolves.not.toThrow();
@@ -100,54 +94,66 @@ describe('Chrome API Adapters', () => {
     it('should update badge with score', async () => {
       const score = 85 as Score;
 
-      chrome.action.setBadgeText = vi.fn().mockImplementation((options, callback) => {
-        callback && callback();
+      chrome.action.setBadgeText = vi.fn().mockImplementation((_options, callback) => {
+        callback?.();
       });
 
-      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((options, callback) => {
-        callback && callback();
+      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((_options, callback) => {
+        callback?.();
       });
 
       await ChromeAction.updateBadge(score);
 
-      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '85%' }, expect.any(Function));
-      expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: '#FF6B35' }, expect.any(Function));
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith(
+        { text: '85%' },
+        expect.any(Function)
+      );
+      expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith(
+        { color: '#FF6B35' },
+        expect.any(Function)
+      );
     });
 
     it('should use correct colors for different score ranges', async () => {
       const testCases = [
         { score: 90, expectedColor: '#FF6B35' }, // High - Orange
         { score: 65, expectedColor: '#5CE1E6' }, // Medium - Cyan
-        { score: 30, expectedColor: '#0A0A0A' }  // Low - Black
+        { score: 30, expectedColor: '#0A0A0A' }, // Low - Black
       ];
 
-      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((options, callback) => {
-        callback && callback();
+      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((_options, callback) => {
+        callback?.();
       });
 
       for (const { score, expectedColor } of testCases) {
         vi.clearAllMocks();
         await ChromeAction.updateBadge(score as Score);
-        expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith({ color: expectedColor }, expect.any(Function));
+        expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith(
+          { color: expectedColor },
+          expect.any(Function)
+        );
       }
     });
   });
 
   describe('ChromeNotifications', () => {
     it('should create notifications', async () => {
-      chrome.notifications.create = vi.fn().mockImplementation((options, callback) => {
-        callback && callback('notification-id');
+      chrome.notifications.create = vi.fn().mockImplementation((_options, callback) => {
+        callback?.('notification-id');
       });
 
       await ChromeNotifications.create('Test Title', 'Test Message');
 
-      expect(chrome.notifications.create).toHaveBeenCalledWith({
-        type: 'basic',
-        iconUrl: 'icon128.png',
-        title: 'Test Title',
-        message: 'Test Message',
-        priority: 2
-      }, expect.any(Function));
+      expect(chrome.notifications.create).toHaveBeenCalledWith(
+        {
+          type: 'basic',
+          iconUrl: 'icon128.png',
+          title: 'Test Title',
+          message: 'Test Message',
+          priority: 2,
+        },
+        expect.any(Function)
+      );
     });
   });
 });
@@ -164,21 +170,25 @@ describe('Clipboard Manager', () => {
         platform: 'github',
         score: 85 as Score,
         structure: { files: [], directories: [], entryPoints: [], totalFiles: 0, totalLines: 0 },
-        dependencies: { runtime: { language: 'TypeScript', version: '5.3.0', packageManager: 'npm' }, packages: [], lockFile: null },
+        dependencies: {
+          runtime: { language: 'TypeScript', version: '5.3.0', packageManager: 'npm' },
+          packages: [],
+          lockFile: null,
+        },
         environment: { variables: [], configFiles: [] },
         metadata: {
           extractionTime: 150,
           version: '1.0.0',
           timestamp: new Date().toISOString(),
           url: 'https://github.com/test',
-          userAgent: 'test-agent'
-        }
+          userAgent: 'test-agent',
+        },
       },
       summary: 'Test project',
       ai_instructions: 'Test instructions',
       checksum: 'abc12345',
       compressed: false,
-      size: 1000
+      size: 1000,
     };
   });
 
@@ -187,8 +197,8 @@ describe('Clipboard Manager', () => {
       // Mock modern clipboard API
       Object.assign(navigator, {
         clipboard: {
-          writeText: vi.fn().mockResolvedValue(undefined)
-        }
+          writeText: vi.fn().mockResolvedValue(undefined),
+        },
       });
 
       await expect(ClipboardManager.copyFAFContent(mockFAF)).resolves.not.toThrow();
@@ -201,13 +211,13 @@ describe('Clipboard Manager', () => {
 
       // Mock document.execCommand
       document.execCommand = vi.fn().mockReturnValue(true);
-      
+
       // Mock document.body.appendChild/removeChild
       const mockAppendChild = vi.fn();
       const mockRemoveChild = vi.fn();
       Object.assign(document.body, {
         appendChild: mockAppendChild,
-        removeChild: mockRemoveChild
+        removeChild: mockRemoveChild,
       });
 
       await expect(ClipboardManager.copyFAFContent(mockFAF)).resolves.not.toThrow();
@@ -217,8 +227,10 @@ describe('Clipboard Manager', () => {
     it('should handle clipboard permission errors', async () => {
       Object.assign(navigator, {
         clipboard: {
-          writeText: vi.fn().mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError'))
-        }
+          writeText: vi
+            .fn()
+            .mockRejectedValue(new DOMException('Permission denied', 'NotAllowedError')),
+        },
       });
 
       await expect(ClipboardManager.copyFAFContent(mockFAF)).rejects.toThrow(ClipboardError);

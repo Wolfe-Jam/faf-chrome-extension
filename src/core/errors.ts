@@ -3,7 +3,6 @@
  * Centralized error types, recovery strategies, and user-friendly messaging
  */
 
-import { telemetry } from '@/core/telemetry';
 import type { Platform } from '@/core/types';
 
 /**
@@ -12,7 +11,7 @@ import type { Platform } from '@/core/types';
 export enum FAFErrorCode {
   // Platform Detection Errors (1000-1099)
   PLATFORM_DETECTION_TIMEOUT = 'FAF_1001',
-  PLATFORM_DETECTION_FAILED = 'FAF_1002', 
+  PLATFORM_DETECTION_FAILED = 'FAF_1002',
   PLATFORM_NOT_SUPPORTED = 'FAF_1003',
   PLATFORM_DOM_ACCESS_DENIED = 'FAF_1004',
 
@@ -65,29 +64,29 @@ export enum FAFErrorCode {
   UNKNOWN_ERROR = 'FAF_1901',
   SYSTEM_OVERLOAD = 'FAF_1902',
   CONFIGURATION_ERROR = 'FAF_1903',
-  DEPENDENCY_ERROR = 'FAF_1904'
+  DEPENDENCY_ERROR = 'FAF_1904',
 }
 
 /**
  * Error severity levels for prioritization and handling
  */
 export enum FAFErrorSeverity {
-  LOW = 'low',         // Minor issues, extension still functional
-  MEDIUM = 'medium',   // Significant issues, some features affected
-  HIGH = 'high',       // Major issues, core functionality impaired
-  CRITICAL = 'critical' // Extension largely unusable
+  LOW = 'low', // Minor issues, extension still functional
+  MEDIUM = 'medium', // Significant issues, some features affected
+  HIGH = 'high', // Major issues, core functionality impaired
+  CRITICAL = 'critical', // Extension largely unusable
 }
 
 /**
  * Error recovery strategies
  */
 export enum FAFRecoveryStrategy {
-  RETRY = 'retry',                    // Automatic retry with backoff
-  FALLBACK = 'fallback',             // Switch to alternative method
-  GRACEFUL_DEGRADATION = 'degrade',  // Continue with limited functionality  
-  USER_ACTION_REQUIRED = 'user',     // User intervention needed
-  RESTART_REQUIRED = 'restart',      // Extension restart needed
-  NO_RECOVERY = 'none'               // Permanent failure
+  RETRY = 'retry', // Automatic retry with backoff
+  FALLBACK = 'fallback', // Switch to alternative method
+  GRACEFUL_DEGRADATION = 'degrade', // Continue with limited functionality
+  USER_ACTION_REQUIRED = 'user', // User intervention needed
+  RESTART_REQUIRED = 'restart', // Extension restart needed
+  NO_RECOVERY = 'none', // Permanent failure
 }
 
 /**
@@ -134,28 +133,31 @@ export class FAFError extends Error {
     } = {}
   ) {
     super(message, { cause: options.cause });
-    
+
     this.name = 'FAFError';
     this.code = code;
     this.timestamp = Date.now();
-    
+
     // Get error details from registry
     const errorInfo = FAFErrorRegistry.getErrorInfo(code);
     this.severity = errorInfo.severity;
     this.recoveryStrategy = errorInfo.recoveryStrategy;
     this.recoveryActions = errorInfo.recoveryActions;
-    
+
     // Use provided user message or default from registry
     this.userMessage = options.userMessage || errorInfo.userMessage;
     this.technicalDetails = options.technicalDetails;
-    
+
     // Build context
     this.context = {
       timestamp: this.timestamp,
       platform: options.context?.platform,
-      url: options.context?.url || (typeof window !== 'undefined' ? window.location.href : undefined),
-      userAgent: options.context?.userAgent || (typeof navigator !== 'undefined' ? navigator.userAgent : undefined),
-      sessionId: options.context?.sessionId
+      url:
+        options.context?.url || (typeof window !== 'undefined' ? window.location.href : undefined),
+      userAgent:
+        options.context?.userAgent ||
+        (typeof navigator !== 'undefined' ? navigator.userAgent : undefined),
+      sessionId: options.context?.sessionId,
     };
 
     // Automatically track error in telemetry
@@ -173,7 +175,7 @@ export class FAFError extends Error {
     if (error instanceof Error) {
       // Try to classify common error types
       let code = FAFErrorCode.UNKNOWN_ERROR;
-      
+
       if (error.message.includes('timeout')) {
         code = FAFErrorCode.EXTRACTION_TIMEOUT;
       } else if (error.message.includes('permission')) {
@@ -187,7 +189,7 @@ export class FAFError extends Error {
       return new FAFError(code, error.message, {
         cause: error,
         technicalDetails: error.stack,
-        context
+        context,
       });
     }
 
@@ -225,7 +227,7 @@ export class FAFError extends Error {
       message: this.userMessage,
       actions: this.recoveryActions,
       severity: this.severity,
-      canRetry: this.recoveryStrategy === FAFRecoveryStrategy.RETRY
+      canRetry: this.recoveryStrategy === FAFRecoveryStrategy.RETRY,
     };
   }
 
@@ -243,16 +245,16 @@ export class FAFError extends Error {
       recoveryActions: this.recoveryActions,
       context: this.context,
       timestamp: this.timestamp,
-      stack: this.stack
+      stack: this.stack,
     };
   }
 
   private getErrorTitle(): string {
     const titles: Record<FAFErrorSeverity, string> = {
       [FAFErrorSeverity.LOW]: 'Minor Issue',
-      [FAFErrorSeverity.MEDIUM]: 'Issue Detected', 
+      [FAFErrorSeverity.MEDIUM]: 'Issue Detected',
       [FAFErrorSeverity.HIGH]: 'Extraction Problem',
-      [FAFErrorSeverity.CRITICAL]: 'Critical Error'
+      [FAFErrorSeverity.CRITICAL]: 'Critical Error',
     };
     return titles[this.severity];
   }
@@ -275,186 +277,303 @@ export class FAFError extends Error {
 export class FAFErrorRegistry {
   private static readonly errorDefinitions: Map<FAFErrorCode, FAFErrorInfo> = new Map([
     // Platform Detection Errors
-    [FAFErrorCode.PLATFORM_DETECTION_TIMEOUT, {
-      code: FAFErrorCode.PLATFORM_DETECTION_TIMEOUT,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Platform detection timed out',
-      userMessage: 'Unable to detect the current platform quickly enough. The page may be loading slowly.',
-      recoveryStrategy: FAFRecoveryStrategy.RETRY,
-      recoveryActions: ['Wait for page to load completely', 'Refresh the page', 'Try extraction again']
-    }],
+    [
+      FAFErrorCode.PLATFORM_DETECTION_TIMEOUT,
+      {
+        code: FAFErrorCode.PLATFORM_DETECTION_TIMEOUT,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Platform detection timed out',
+        userMessage:
+          'Unable to detect the current platform quickly enough. The page may be loading slowly.',
+        recoveryStrategy: FAFRecoveryStrategy.RETRY,
+        recoveryActions: [
+          'Wait for page to load completely',
+          'Refresh the page',
+          'Try extraction again',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.PLATFORM_NOT_SUPPORTED, {
-      code: FAFErrorCode.PLATFORM_NOT_SUPPORTED,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Platform is not supported',
-      userMessage: 'This website is not currently supported by FAF. We support GitHub, Monaco Editor, CodeMirror, and other development platforms.',
-      recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
-      recoveryActions: ['Try on a supported platform', 'Copy code manually', 'Request platform support']
-    }],
+    [
+      FAFErrorCode.PLATFORM_NOT_SUPPORTED,
+      {
+        code: FAFErrorCode.PLATFORM_NOT_SUPPORTED,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Platform is not supported',
+        userMessage:
+          'This website is not currently supported by FAF. We support GitHub, Monaco Editor, CodeMirror, and other development platforms.',
+        recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
+        recoveryActions: [
+          'Try on a supported platform',
+          'Copy code manually',
+          'Request platform support',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED, {
-      code: FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'DOM access denied',
-      userMessage: 'Cannot access page content due to security restrictions. This may be due to strict Content Security Policy.',
-      recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
-      recoveryActions: ['Refresh the page', 'Check browser security settings', 'Try on a different page']
-    }],
+    [
+      FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED,
+      {
+        code: FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'DOM access denied',
+        userMessage:
+          'Cannot access page content due to security restrictions. This may be due to strict Content Security Policy.',
+        recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
+        recoveryActions: [
+          'Refresh the page',
+          'Check browser security settings',
+          'Try on a different page',
+        ],
+      },
+    ],
 
     // Extraction Errors
-    [FAFErrorCode.EXTRACTION_TIMEOUT, {
-      code: FAFErrorCode.EXTRACTION_TIMEOUT,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Context extraction timed out',
-      userMessage: 'Extraction took longer than expected. The page may have complex content or be loading slowly.',
-      recoveryStrategy: FAFRecoveryStrategy.RETRY,
-      recoveryActions: ['Wait a moment and try again', 'Refresh the page', 'Check internet connection']
-    }],
+    [
+      FAFErrorCode.EXTRACTION_TIMEOUT,
+      {
+        code: FAFErrorCode.EXTRACTION_TIMEOUT,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Context extraction timed out',
+        userMessage:
+          'Extraction took longer than expected. The page may have complex content or be loading slowly.',
+        recoveryStrategy: FAFRecoveryStrategy.RETRY,
+        recoveryActions: [
+          'Wait a moment and try again',
+          'Refresh the page',
+          'Check internet connection',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.EXTRACTION_PERMISSION_DENIED, {
-      code: FAFErrorCode.EXTRACTION_PERMISSION_DENIED,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'Permission denied for extraction',
-      userMessage: 'FAF does not have permission to access this page. Please check extension permissions.',
-      recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
-      recoveryActions: ['Check extension permissions in browser settings', 'Reload the extension', 'Refresh the page']
-    }],
+    [
+      FAFErrorCode.EXTRACTION_PERMISSION_DENIED,
+      {
+        code: FAFErrorCode.EXTRACTION_PERMISSION_DENIED,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'Permission denied for extraction',
+        userMessage:
+          'FAF does not have permission to access this page. Please check extension permissions.',
+        recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
+        recoveryActions: [
+          'Check extension permissions in browser settings',
+          'Reload the extension',
+          'Refresh the page',
+        ],
+      },
+    ],
 
     // Chrome API Errors
-    [FAFErrorCode.CHROME_TAB_ACCESS_DENIED, {
-      code: FAFErrorCode.CHROME_TAB_ACCESS_DENIED,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'Chrome tab access denied',
-      userMessage: 'Cannot access the current tab. Please ensure FAF has the necessary permissions.',
-      recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
-      recoveryActions: ['Grant tab permissions to FAF', 'Reload the extension', 'Check browser security settings']
-    }],
+    [
+      FAFErrorCode.CHROME_TAB_ACCESS_DENIED,
+      {
+        code: FAFErrorCode.CHROME_TAB_ACCESS_DENIED,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'Chrome tab access denied',
+        userMessage:
+          'Cannot access the current tab. Please ensure FAF has the necessary permissions.',
+        recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
+        recoveryActions: [
+          'Grant tab permissions to FAF',
+          'Reload the extension',
+          'Check browser security settings',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED, {
-      code: FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Chrome storage quota exceeded',
-      userMessage: 'Extension storage is full. Some data may not be saved.',
-      recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
-      recoveryActions: ['Clear extension data', 'Restart browser', 'Continue without saving preferences']
-    }],
+    [
+      FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED,
+      {
+        code: FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Chrome storage quota exceeded',
+        userMessage: 'Extension storage is full. Some data may not be saved.',
+        recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
+        recoveryActions: [
+          'Clear extension data',
+          'Restart browser',
+          'Continue without saving preferences',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_PERMISSIONS_MISSING, {
-      code: FAFErrorCode.CHROME_PERMISSIONS_MISSING,
-      severity: FAFErrorSeverity.CRITICAL,
-      message: 'Required Chrome permissions missing',
-      userMessage: 'FAF is missing required permissions to function properly.',
-      recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
-      recoveryActions: ['Go to chrome://extensions/', 'Find FAF extension', 'Grant required permissions']
-    }],
+    [
+      FAFErrorCode.CHROME_PERMISSIONS_MISSING,
+      {
+        code: FAFErrorCode.CHROME_PERMISSIONS_MISSING,
+        severity: FAFErrorSeverity.CRITICAL,
+        message: 'Required Chrome permissions missing',
+        userMessage: 'FAF is missing required permissions to function properly.',
+        recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
+        recoveryActions: [
+          'Go to chrome://extensions/',
+          'Find FAF extension',
+          'Grant required permissions',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_TAB_NOT_FOUND, {
-      code: FAFErrorCode.CHROME_TAB_NOT_FOUND,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'No active tab found',
-      userMessage: 'No active tab detected. Please open a supported page.',
-      recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
-      recoveryActions: ['Open a supported website', 'Refresh the current page', 'Try a different tab']
-    }],
+    [
+      FAFErrorCode.CHROME_TAB_NOT_FOUND,
+      {
+        code: FAFErrorCode.CHROME_TAB_NOT_FOUND,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'No active tab found',
+        userMessage: 'No active tab detected. Please open a supported page.',
+        recoveryStrategy: FAFRecoveryStrategy.USER_ACTION_REQUIRED,
+        recoveryActions: [
+          'Open a supported website',
+          'Refresh the current page',
+          'Try a different tab',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_API_UNAVAILABLE, {
-      code: FAFErrorCode.CHROME_API_UNAVAILABLE,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'Chrome API unavailable',
-      userMessage: 'Chrome extension APIs are not available.',
-      recoveryStrategy: FAFRecoveryStrategy.RESTART_REQUIRED,
-      recoveryActions: ['Restart browser', 'Check Chrome version', 'Reinstall extension']
-    }],
+    [
+      FAFErrorCode.CHROME_API_UNAVAILABLE,
+      {
+        code: FAFErrorCode.CHROME_API_UNAVAILABLE,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'Chrome API unavailable',
+        userMessage: 'Chrome extension APIs are not available.',
+        recoveryStrategy: FAFRecoveryStrategy.RESTART_REQUIRED,
+        recoveryActions: ['Restart browser', 'Check Chrome version', 'Reinstall extension'],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_MESSAGE_FAILED, {
-      code: FAFErrorCode.CHROME_MESSAGE_FAILED,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Chrome message failed',
-      userMessage: 'Failed to communicate with the page. Please try again.',
-      recoveryStrategy: FAFRecoveryStrategy.RETRY,
-      recoveryActions: ['Try again', 'Refresh the page', 'Check page permissions']
-    }],
+    [
+      FAFErrorCode.CHROME_MESSAGE_FAILED,
+      {
+        code: FAFErrorCode.CHROME_MESSAGE_FAILED,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Chrome message failed',
+        userMessage: 'Failed to communicate with the page. Please try again.',
+        recoveryStrategy: FAFRecoveryStrategy.RETRY,
+        recoveryActions: ['Try again', 'Refresh the page', 'Check page permissions'],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_SCRIPTING_FAILED, {
-      code: FAFErrorCode.CHROME_SCRIPTING_FAILED,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'Script injection failed',
-      userMessage: 'Unable to inject required scripts into the page.',
-      recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
-      recoveryActions: ['Refresh the page', 'Try a different page', 'Check site permissions']
-    }],
+    [
+      FAFErrorCode.CHROME_SCRIPTING_FAILED,
+      {
+        code: FAFErrorCode.CHROME_SCRIPTING_FAILED,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'Script injection failed',
+        userMessage: 'Unable to inject required scripts into the page.',
+        recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
+        recoveryActions: ['Refresh the page', 'Try a different page', 'Check site permissions'],
+      },
+    ],
 
-    [FAFErrorCode.CHROME_STORAGE_ERROR, {
-      code: FAFErrorCode.CHROME_STORAGE_ERROR,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Chrome storage error',
-      userMessage: 'Unable to save data. Some features may not persist.',
-      recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
-      recoveryActions: ['Continue without saving', 'Clear extension data', 'Restart browser']
-    }],
+    [
+      FAFErrorCode.CHROME_STORAGE_ERROR,
+      {
+        code: FAFErrorCode.CHROME_STORAGE_ERROR,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Chrome storage error',
+        userMessage: 'Unable to save data. Some features may not persist.',
+        recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
+        recoveryActions: ['Continue without saving', 'Clear extension data', 'Restart browser'],
+      },
+    ],
 
     // Service Worker Errors
-    [FAFErrorCode.SERVICE_WORKER_INIT_FAILED, {
-      code: FAFErrorCode.SERVICE_WORKER_INIT_FAILED,
-      severity: FAFErrorSeverity.CRITICAL,
-      message: 'Service worker initialization failed',
-      userMessage: 'Extension background service failed to start. Please restart the browser.',
-      recoveryStrategy: FAFRecoveryStrategy.RESTART_REQUIRED,
-      recoveryActions: ['Restart browser', 'Reload extension', 'Check for browser updates']
-    }],
+    [
+      FAFErrorCode.SERVICE_WORKER_INIT_FAILED,
+      {
+        code: FAFErrorCode.SERVICE_WORKER_INIT_FAILED,
+        severity: FAFErrorSeverity.CRITICAL,
+        message: 'Service worker initialization failed',
+        userMessage: 'Extension background service failed to start. Please restart the browser.',
+        recoveryStrategy: FAFRecoveryStrategy.RESTART_REQUIRED,
+        recoveryActions: ['Restart browser', 'Reload extension', 'Check for browser updates'],
+      },
+    ],
 
-    [FAFErrorCode.SERVICE_WORKER_MEMORY_PRESSURE, {
-      code: FAFErrorCode.SERVICE_WORKER_MEMORY_PRESSURE,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Service worker under memory pressure',
-      userMessage: 'Extension is using high memory. Performance may be affected.',
-      recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
-      recoveryActions: ['Close unused tabs', 'Restart browser', 'Limit concurrent extractions']
-    }],
+    [
+      FAFErrorCode.SERVICE_WORKER_MEMORY_PRESSURE,
+      {
+        code: FAFErrorCode.SERVICE_WORKER_MEMORY_PRESSURE,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Service worker under memory pressure',
+        userMessage: 'Extension is using high memory. Performance may be affected.',
+        recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
+        recoveryActions: ['Close unused tabs', 'Restart browser', 'Limit concurrent extractions'],
+      },
+    ],
 
     // Clipboard Errors
-    [FAFErrorCode.CLIPBOARD_PERMISSION_DENIED, {
-      code: FAFErrorCode.CLIPBOARD_PERMISSION_DENIED,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'Clipboard permission denied',
-      userMessage: 'Cannot copy to clipboard automatically. You can copy the content manually.',
-      recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
-      recoveryActions: ['Grant clipboard permission', 'Copy content manually', 'Use Ctrl+C to copy']
-    }],
+    [
+      FAFErrorCode.CLIPBOARD_PERMISSION_DENIED,
+      {
+        code: FAFErrorCode.CLIPBOARD_PERMISSION_DENIED,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'Clipboard permission denied',
+        userMessage: 'Cannot copy to clipboard automatically. You can copy the content manually.',
+        recoveryStrategy: FAFRecoveryStrategy.FALLBACK,
+        recoveryActions: [
+          'Grant clipboard permission',
+          'Copy content manually',
+          'Use Ctrl+C to copy',
+        ],
+      },
+    ],
 
-    [FAFErrorCode.CLIPBOARD_DATA_TOO_LARGE, {
-      code: FAFErrorCode.CLIPBOARD_DATA_TOO_LARGE,
-      severity: FAFErrorSeverity.LOW,
-      message: 'Clipboard data too large',
-      userMessage: 'The extracted content is too large for clipboard. Consider extracting smaller sections.',
-      recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
-      recoveryActions: ['Extract smaller code sections', 'Copy parts manually', 'Save to file instead']
-    }],
+    [
+      FAFErrorCode.CLIPBOARD_DATA_TOO_LARGE,
+      {
+        code: FAFErrorCode.CLIPBOARD_DATA_TOO_LARGE,
+        severity: FAFErrorSeverity.LOW,
+        message: 'Clipboard data too large',
+        userMessage:
+          'The extracted content is too large for clipboard. Consider extracting smaller sections.',
+        recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
+        recoveryActions: [
+          'Extract smaller code sections',
+          'Copy parts manually',
+          'Save to file instead',
+        ],
+      },
+    ],
 
     // Content Script Errors
-    [FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION, {
-      code: FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION,
-      severity: FAFErrorSeverity.HIGH,
-      message: 'Content Security Policy violation',
-      userMessage: 'Page security settings prevent FAF from working. This is common on some secure sites.',
-      recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
-      recoveryActions: ['Try on a different page', 'Use manual copy instead', 'Contact site administrator']
-    }],
+    [
+      FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION,
+      {
+        code: FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION,
+        severity: FAFErrorSeverity.HIGH,
+        message: 'Content Security Policy violation',
+        userMessage:
+          'Page security settings prevent FAF from working. This is common on some secure sites.',
+        recoveryStrategy: FAFRecoveryStrategy.GRACEFUL_DEGRADATION,
+        recoveryActions: [
+          'Try on a different page',
+          'Use manual copy instead',
+          'Contact site administrator',
+        ],
+      },
+    ],
 
     // Unknown Error
-    [FAFErrorCode.UNKNOWN_ERROR, {
-      code: FAFErrorCode.UNKNOWN_ERROR,
-      severity: FAFErrorSeverity.MEDIUM,
-      message: 'An unexpected error occurred',
-      userMessage: 'Something unexpected happened. Please try again or restart the browser.',
-      recoveryStrategy: FAFRecoveryStrategy.RETRY,
-      recoveryActions: ['Try the action again', 'Refresh the page', 'Restart browser if issues persist']
-    }]
+    [
+      FAFErrorCode.UNKNOWN_ERROR,
+      {
+        code: FAFErrorCode.UNKNOWN_ERROR,
+        severity: FAFErrorSeverity.MEDIUM,
+        message: 'An unexpected error occurred',
+        userMessage: 'Something unexpected happened. Please try again or restart the browser.',
+        recoveryStrategy: FAFRecoveryStrategy.RETRY,
+        recoveryActions: [
+          'Try the action again',
+          'Refresh the page',
+          'Restart browser if issues persist',
+        ],
+      },
+    ],
   ]);
 
   static getErrorInfo(code: FAFErrorCode): FAFErrorInfo {
-    const info = this.errorDefinitions.get(code);
+    const info = FAFErrorRegistry.errorDefinitions.get(code);
     if (!info) {
       // Return default error info for unknown codes
       return {
@@ -463,14 +582,14 @@ export class FAFErrorRegistry {
         message: 'Unknown error',
         userMessage: 'An unknown error occurred. Please try again.',
         recoveryStrategy: FAFRecoveryStrategy.RETRY,
-        recoveryActions: ['Try again', 'Restart extension']
+        recoveryActions: ['Try again', 'Restart extension'],
       };
     }
     return info;
   }
 
   static getAllErrorCodes(): readonly FAFErrorCode[] {
-    return Array.from(this.errorDefinitions.keys());
+    return Array.from(FAFErrorRegistry.errorDefinitions.keys());
   }
 }
 
@@ -488,7 +607,7 @@ export function withErrorBoundary<Args extends readonly any[], Return>(
     } catch (error) {
       const fafError = FAFError.fromUnknown(error, {
         platform: undefined, // Could be enhanced with context
-        sessionId: undefined // Could be enhanced with session tracking
+        sessionId: undefined, // Could be enhanced with session tracking
       });
 
       // Log with context if provided
@@ -550,5 +669,5 @@ export const ErrorUtils = {
       return error.recoveryActions;
     }
     return ['Try again', 'Refresh the page'];
-  }
+  },
 };

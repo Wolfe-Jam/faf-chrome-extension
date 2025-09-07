@@ -3,8 +3,8 @@
  * All Chrome extension APIs with proper error handling and types
  */
 
-import type { Message, ExtractionResult, Score } from '@/core/types';
 import { FAFError, FAFErrorCode } from '@/core/errors';
+import type { ExtractionResult, Message, Score } from '@/core/types';
 
 export interface ChromeTab {
   readonly id: number;
@@ -24,7 +24,7 @@ export interface ChromeStorage {
     readonly sessionId: string;
     readonly eventCount: number;
     readonly metricsCount: number;
-    readonly lastEvent?: any;
+    readonly lastEvent?: Record<string, unknown>;
     readonly health: string;
   };
 }
@@ -51,37 +51,41 @@ export class ChromeTabs {
       try {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_RUNTIME_ERROR,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: 'Chrome tabs API operation failed' }
-            ));
+            reject(
+              new FAFError(
+                FAFErrorCode.CHROME_RUNTIME_ERROR,
+                chrome.runtime.lastError.message || 'Unknown runtime error',
+                { technicalDetails: 'Chrome tabs API operation failed' }
+              )
+            );
             return;
           }
-          
+
           const activeTab = tabs[0];
           if (!activeTab?.id || !activeTab.url) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_TAB_NOT_FOUND,
-              'No active tab found',
-              { technicalDetails: 'Chrome tabs API operation failed' }
-            ));
+            reject(
+              new FAFError(FAFErrorCode.CHROME_TAB_NOT_FOUND, 'No active tab found', {
+                technicalDetails: 'Chrome tabs API operation failed',
+              })
+            );
             return;
           }
-          
+
           resolve({
             id: activeTab.id,
             url: activeTab.url,
             title: activeTab.title ?? '',
-            active: activeTab.active
+            active: activeTab.active,
           });
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown tabs API error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown tabs API error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -92,7 +96,10 @@ export class ChromeTabs {
         chrome.tabs.sendMessage(tabId, message, (_response) => {
           if (chrome.runtime.lastError) {
             // Gracefully handle tab messaging errors
-            console.warn('FAF: Tab messaging warning (non-blocking):', chrome.runtime.lastError.message);
+            console.warn(
+              'FAF: Tab messaging warning (non-blocking):',
+              chrome.runtime.lastError.message
+            );
             resolve();
             return;
           }
@@ -109,18 +116,24 @@ export class ChromeTabs {
   static async executeScript(tabId: number, files: readonly string[]): Promise<void> {
     return new Promise((resolve) => {
       try {
-        chrome.scripting.executeScript({
-          target: { tabId },
-          files: [...files]
-        }, () => {
-          if (chrome.runtime.lastError) {
-            // Gracefully handle script execution errors
-            console.warn('FAF: Script execution warning (non-blocking):', chrome.runtime.lastError.message);
+        chrome.scripting.executeScript(
+          {
+            target: { tabId },
+            files: [...files],
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              // Gracefully handle script execution errors
+              console.warn(
+                'FAF: Script execution warning (non-blocking):',
+                chrome.runtime.lastError.message
+              );
+              resolve();
+              return;
+            }
             resolve();
-            return;
           }
-          resolve();
-        });
+        );
       } catch (error) {
         // Never throw - always graceful recovery
         console.warn('FAF: Script execution warning (non-blocking):', error);
@@ -157,9 +170,15 @@ export class ChromeStorageAPI {
           });
         });
       } catch (error) {
-        if (error instanceof FAFError && error.message.includes('Receiving end does not exist') && attempt < MAX_RETRIES) {
-          console.warn(`FAF: Storage connection failed (attempt ${attempt}). Retrying in ${RETRY_DELAY_MS}ms...`);
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+        if (
+          error instanceof FAFError &&
+          error.message.includes('Receiving end does not exist') &&
+          attempt < MAX_RETRIES
+        ) {
+          console.warn(
+            `FAF: Storage connection failed (attempt ${attempt}). Retrying in ${RETRY_DELAY_MS}ms...`
+          );
+          await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
           continue; // next attempt
         }
         // If it's another error or the last attempt, re-throw
@@ -180,21 +199,25 @@ export class ChromeStorageAPI {
       try {
         chrome.storage.local.set(data, () => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED,
-              chrome.runtime.lastError.message || 'Unknown storage error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            reject(
+              new FAFError(
+                FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED,
+                chrome.runtime.lastError.message || 'Unknown storage error',
+                { technicalDetails: 'Chrome API operation failed' }
+              )
+            );
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown storage error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown storage error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -204,21 +227,25 @@ export class ChromeStorageAPI {
       try {
         chrome.storage.local.clear(() => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_STORAGE_ERROR,
-              chrome.runtime.lastError.message || 'Unknown storage error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            reject(
+              new FAFError(
+                FAFErrorCode.CHROME_STORAGE_ERROR,
+                chrome.runtime.lastError.message || 'Unknown storage error',
+                { technicalDetails: 'Chrome API operation failed' }
+              )
+            );
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown storage error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown storage error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -233,21 +260,25 @@ export class ChromeAction {
       try {
         chrome.action.setBadgeText({ text }, () => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_RUNTIME_ERROR,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            reject(
+              new FAFError(
+                FAFErrorCode.CHROME_RUNTIME_ERROR,
+                chrome.runtime.lastError.message || 'Unknown runtime error',
+                { technicalDetails: 'Chrome API operation failed' }
+              )
+            );
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown action error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown action error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -257,21 +288,25 @@ export class ChromeAction {
       try {
         chrome.action.setBadgeBackgroundColor({ color }, () => {
           if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_RUNTIME_ERROR,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
+            reject(
+              new FAFError(
+                FAFErrorCode.CHROME_RUNTIME_ERROR,
+                chrome.runtime.lastError.message || 'Unknown runtime error',
+                { technicalDetails: 'Chrome API operation failed' }
+              )
+            );
             return;
           }
           resolve();
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown action error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown action error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -279,7 +314,7 @@ export class ChromeAction {
   static async updateBadge(score: Score): Promise<void> {
     const scoreValue = score as number;
     const badgeText = `${scoreValue}%`;
-    
+
     let badgeColor: string;
     if (scoreValue >= 80) {
       badgeColor = '#FF6B35'; // Orange
@@ -291,7 +326,7 @@ export class ChromeAction {
 
     await Promise.all([
       ChromeAction.setBadgeText(badgeText),
-      ChromeAction.setBadgeBackgroundColor(badgeColor)
+      ChromeAction.setBadgeBackgroundColor(badgeColor),
     ]);
   }
 }
@@ -307,29 +342,36 @@ export class ChromeNotifications {
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl,
-          title,
-          message,
-          priority: 2
-        }, () => {
-          if (chrome.runtime.lastError) {
-            reject(new FAFError(
-              FAFErrorCode.CHROME_RUNTIME_ERROR,
-              chrome.runtime.lastError.message || 'Unknown runtime error',
-              { technicalDetails: "Chrome API operation failed" }
-            ));
-            return;
+        chrome.notifications.create(
+          {
+            type: 'basic',
+            iconUrl,
+            title,
+            message,
+            priority: 2,
+          },
+          () => {
+            if (chrome.runtime.lastError) {
+              reject(
+                new FAFError(
+                  FAFErrorCode.CHROME_RUNTIME_ERROR,
+                  chrome.runtime.lastError.message || 'Unknown runtime error',
+                  { technicalDetails: 'Chrome API operation failed' }
+                )
+              );
+              return;
+            }
+            resolve();
           }
-          resolve();
-        });
+        );
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown notification error',
-          { technicalDetails: "Chrome API operation failed" }
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown notification error',
+            { technicalDetails: 'Chrome API operation failed' }
+          )
+        );
       }
     });
   }
@@ -339,23 +381,27 @@ export class ChromeNotifications {
  * Type-safe wrapper for Chrome runtime messaging
  */
 export class ChromeRuntime {
-  static sendMessage(message: Message): Promise<any> {
+  static sendMessage(message: Message): Promise<unknown> {
     return new Promise((resolve, reject) => {
       try {
         chrome.runtime.sendMessage(message, (response) => {
           if (chrome.runtime.lastError) {
-            return reject(new FAFError(
-              FAFErrorCode.CHROME_RUNTIME_ERROR,
-              chrome.runtime.lastError.message || 'Unknown runtime error'
-            ));
+            return reject(
+              new FAFError(
+                FAFErrorCode.CHROME_RUNTIME_ERROR,
+                chrome.runtime.lastError.message || 'Unknown runtime error'
+              )
+            );
           }
           resolve(response);
         });
       } catch (error) {
-        reject(new FAFError(
-          FAFErrorCode.CHROME_API_UNAVAILABLE,
-          error instanceof Error ? error.message : 'Unknown messaging error'
-        ));
+        reject(
+          new FAFError(
+            FAFErrorCode.CHROME_API_UNAVAILABLE,
+            error instanceof Error ? error.message : 'Unknown messaging error'
+          )
+        );
       }
     });
   }
@@ -365,7 +411,7 @@ export class ChromeRuntime {
       message: Message,
       sender: chrome.runtime.MessageSender,
       sendResponse: (response?: unknown) => void
-    ) => boolean | void
+    ) => boolean | undefined
   ): void {
     chrome.runtime.onMessage.addListener(listener);
   }

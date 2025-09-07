@@ -5,50 +5,45 @@
 
 console.log('FAF Service Worker: Script loading');
 
-import type { 
-  Message, 
-  ContextExtractedMessage, 
-  ExtractContextMessage,
-  ErrorMessage,
-  ExtractionResult,
-  Score,
-  MessageType
-} from '@/core/types';
-import { MESSAGE_TYPES } from '@/core/types';
-
-import { 
-  ChromeTabs, 
-  ChromeStorageAPI, 
-  ChromeAction, 
-  ChromeNotifications,
+import {
+  ChromeAction,
   ChromeCommands,
-  ChromeRuntime 
+  ChromeNotifications,
+  ChromeRuntime,
+  ChromeStorageAPI,
+  ChromeTabs,
 } from '@/adapters/chrome';
-
+import { FAFError, FAFErrorCode } from '@/core/errors';
 import { telemetry } from '@/core/telemetry';
-import { 
-  FAFError, 
-  FAFErrorCode, 
-  FAFErrorSeverity 
-} from '@/core/errors';
+import type {
+  ContextExtractedMessage,
+  ErrorMessage,
+  ExtractContextMessage,
+  ExtractionResult,
+  Message,
+  Score,
+} from '@/core/types';
 import { errorNotifications } from '@/ui/error-notifications';
 
 /**
  * Service Worker State Management - Memory-safe state tracking with cleanup
  */
 class ServiceWorkerState {
-  private readonly activeExtractions = new Map<number, {
-    readonly tabId: number;
-    readonly startTime: number;
-    readonly timeout: number; // Changed from NodeJS.Timeout to number (setTimeout returns number in service workers)
-  }>();
+  private readonly activeExtractions = new Map<
+    number,
+    {
+      readonly tabId: number;
+      readonly startTime: number;
+      readonly timeout: number; // Changed from NodeJS.Timeout to number (setTimeout returns number in service workers)
+    }
+  >();
 
   private readonly stats = {
     totalExtractions: 0,
     successfulExtractions: 0,
     failedExtractions: 0,
     lastExtraction: null as ExtractionResult | null,
-    lastError: null as string | null
+    lastError: null as string | null,
   };
 
   // Memory management constants
@@ -77,7 +72,7 @@ class ServiceWorkerState {
     this.activeExtractions.set(tabId, {
       tabId,
       startTime: Date.now(),
-      timeout: timeoutId as number
+      timeout: timeoutId as number,
     });
   }
 
@@ -111,7 +106,7 @@ class ServiceWorkerState {
         platform: result.faf.context.platform,
         score: result.faf.score,
         duration: result.faf.context.metadata.extractionTime,
-        fileCount: result.faf.context.structure.totalFiles
+        fileCount: result.faf.context.structure.totalFiles,
       });
     }
   }
@@ -123,7 +118,7 @@ class ServiceWorkerState {
 
     // Track failure in telemetry
     telemetry.trackExtraction('error', {
-      error: error
+      error: error,
     });
   }
 
@@ -133,17 +128,17 @@ class ServiceWorkerState {
 
   private async handleExtractionTimeout(tabId: number): Promise<void> {
     this.clearActiveExtraction(tabId);
-    
+
     const fafError = new FAFError(
       FAFErrorCode.EXTRACTION_TIMEOUT,
       `Extraction timeout for tab ${tabId}`,
       {
-        context: { timestamp: Date.now() }
+        context: { timestamp: Date.now() },
       }
     );
-    
+
     this.recordFailure(fafError.userMessage);
-    
+
     // Show standardized error notification
     await errorNotifications.showError(fafError, {
       operationId: `extraction_${tabId}`,
@@ -153,10 +148,10 @@ class ServiceWorkerState {
         const message: ExtractContextMessage = {
           type: 'EXTRACT_CONTEXT',
           timestamp: Date.now(),
-          source: 'service-worker'
+          source: 'service-worker',
         };
         await ChromeTabs.sendMessage(tabId, message);
-      }
+      },
     });
   }
 
@@ -211,8 +206,9 @@ class ServiceWorkerState {
    * Clean up oldest extractions to free memory
    */
   private cleanupOldestExtractions(count: number): void {
-    const sortedExtractions = Array.from(this.activeExtractions.entries())
-      .sort(([, a], [, b]) => a.startTime - b.startTime);
+    const sortedExtractions = Array.from(this.activeExtractions.entries()).sort(
+      ([, a], [, b]) => a.startTime - b.startTime
+    );
 
     for (let i = 0; i < Math.min(count, sortedExtractions.length); i++) {
       const extraction = sortedExtractions[i];
@@ -263,7 +259,7 @@ class ServiceWorkerState {
   } {
     const activeCount = this.activeExtractions.size;
     const totalStats = this.stats.totalExtractions;
-    
+
     let memoryPressure: 'low' | 'medium' | 'high' = 'low';
     if (activeCount > this.MAX_ACTIVE_EXTRACTIONS * 0.8) {
       memoryPressure = 'high';
@@ -274,7 +270,7 @@ class ServiceWorkerState {
     return {
       activeExtractions: activeCount,
       totalStats,
-      memoryPressure
+      memoryPressure,
     };
   }
 }
@@ -285,7 +281,12 @@ class ServiceWorkerState {
 class ServiceWorkerError extends Error {
   constructor(
     message: string,
-    public readonly code: 'TAB_ERROR' | 'STORAGE_ERROR' | 'MESSAGING_ERROR' | 'EXTRACTION_ERROR' | 'NOTIFICATION_ERROR'
+    public readonly code:
+      | 'TAB_ERROR'
+      | 'STORAGE_ERROR'
+      | 'MESSAGING_ERROR'
+      | 'EXTRACTION_ERROR'
+      | 'NOTIFICATION_ERROR'
   ) {
     super(message);
     this.name = 'ServiceWorkerError';
@@ -312,7 +313,7 @@ class ServiceWorkerManager {
       // Track service worker startup
       telemetry.track('user_action', {
         action: 'service_worker_start',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       // Set up all event listeners with error handling
@@ -327,7 +328,7 @@ class ServiceWorkerManager {
       telemetry.track('error_boundary', {
         type: 'service_worker_init_failure',
         error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : 'No stack trace'
+        stack: error instanceof Error ? error.stack : 'No stack trace',
       });
 
       console.error('❌ Service Worker initialization failed:', error);
@@ -335,7 +336,7 @@ class ServiceWorkerManager {
         FAFErrorCode.SERVICE_WORKER_INIT_FAILED,
         `Service worker initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         {
-          context: { timestamp: Date.now() }
+          context: { timestamp: Date.now() },
         }
       );
     }
@@ -347,19 +348,22 @@ class ServiceWorkerManager {
   private setupMessageHandling(): void {
     ChromeRuntime.onMessage((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse)
-        .then(result => {
+        .then((result) => {
           if (result !== undefined) {
             sendResponse(result);
           }
         })
-        .catch(error => {
-          const fafError = error instanceof FAFError ? error : new FAFError(
-            FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
-            'Service worker message handling failed',
-            {
-              context: { messageType: message.type, timestamp: Date.now() }
-            }
-          );
+        .catch((error) => {
+          const fafError =
+            error instanceof FAFError
+              ? error
+              : new FAFError(
+                  FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
+                  'Service worker message handling failed',
+                  {
+                    context: { messageType: message.type, timestamp: Date.now() },
+                  }
+                );
 
           console.error('Message handling error:', fafError);
 
@@ -368,16 +372,16 @@ class ServiceWorkerManager {
             type: 'service_worker_message_error',
             errorCode: fafError.code,
             messageType: message.type,
-            severity: fafError.severity
+            severity: fafError.severity,
           });
 
           sendResponse({
             success: false,
             error: fafError.userMessage,
-            code: fafError.code
+            code: fafError.code,
           });
         });
-      
+
       return true; // Keep message channel open for async response
     });
   }
@@ -391,7 +395,7 @@ class ServiceWorkerManager {
         .then(() => {
           console.log('✅ FAF Extension installed and badge initialized');
         })
-        .catch(error => {
+        .catch((error) => {
           console.error('❌ Badge initialization failed:', error);
         });
     });
@@ -403,10 +407,9 @@ class ServiceWorkerManager {
   private setupCommandHandling(): void {
     ChromeCommands.onCommand((command) => {
       if (command === 'extract-context') {
-        this.handleKeyboardShortcut()
-          .catch(error => {
-            console.error('❌ Keyboard shortcut failed:', error);
-          });
+        this.handleKeyboardShortcut().catch((error) => {
+          console.error('❌ Keyboard shortcut failed:', error);
+        });
       }
     });
   }
@@ -431,7 +434,7 @@ class ServiceWorkerManager {
    */
   private setupBadgeInitialization(): void {
     // Initialize badge immediately
-    this.initializeBadge().catch(error => {
+    this.initializeBadge().catch((error) => {
       console.error('❌ Initial badge setup failed:', error);
     });
   }
@@ -459,17 +462,20 @@ class ServiceWorkerManager {
     // For all other messages, a tab ID is required
     const tabId = sender.tab?.id;
     if (tabId === undefined) {
-      throw new ServiceWorkerError('Message sender has no tab ID for non-ping message', 'TAB_ERROR');
+      throw new ServiceWorkerError(
+        'Message sender has no tab ID for non-ping message',
+        'TAB_ERROR'
+      );
     }
 
     console.log(`📨 Received message: ${message.type} from tab ${tabId}`);
-    
+
     // Track message received
     telemetry.track('api_call', {
       type: 'message_received',
       messageType: message.type,
       tabId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     try {
@@ -493,15 +499,15 @@ class ServiceWorkerManager {
     } catch (error) {
       // Log error and update stats
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
+
       // Track message handling failure
       telemetry.track('error_boundary', {
         type: 'message_handling_error',
         messageType: message.type,
         error: errorMessage,
-        tabId
+        tabId,
       });
-      
+
       console.error(`❌ Message handling failed for ${message.type}:`, errorMessage);
       this.state.recordFailure(errorMessage);
       throw error;
@@ -511,7 +517,10 @@ class ServiceWorkerManager {
   /**
    * Handle extraction request with concurrency limits and timeout protection
    */
-  private async handleExtractRequest(message: ExtractContextMessage, tabId: number): Promise<{ success: boolean }> {
+  private async handleExtractRequest(
+    message: ExtractContextMessage,
+    tabId: number
+  ): Promise<{ success: boolean }> {
     // Check concurrency limits
     if (this.state.getActiveExtractionCount() >= this.MAX_CONCURRENT_EXTRACTIONS) {
       throw new ServiceWorkerError(
@@ -537,11 +546,10 @@ class ServiceWorkerManager {
 
       console.log(`🚀 Extraction started for tab ${tabId}`);
       return { success: true };
-
     } catch (error) {
       // Clean up on failure
       this.state.clearActiveExtraction(tabId);
-      
+
       if (error instanceof FAFError) {
         throw new FAFError(
           FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
@@ -549,7 +557,7 @@ class ServiceWorkerManager {
           { context: { timestamp: Date.now() } }
         );
       }
-      
+
       throw new ServiceWorkerError(
         `Extraction request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'EXTRACTION_ERROR'
@@ -560,7 +568,10 @@ class ServiceWorkerManager {
   /**
    * Handle successful context extraction with comprehensive processing
    */
-  private async handleContextExtracted(message: ContextExtractedMessage, tabId: number): Promise<{ success: boolean }> {
+  private async handleContextExtracted(
+    message: ContextExtractedMessage,
+    tabId: number
+  ): Promise<{ success: boolean }> {
     // Clear active extraction
     const wasActive = this.state.clearActiveExtraction(tabId);
     if (!wasActive) {
@@ -584,15 +595,17 @@ class ServiceWorkerManager {
       // Store extraction result
       await ChromeStorageAPI.set({
         lastExtraction: result,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       // Show success notification
-      await this.showSuccessNotification(result.faf.score, result.faf.context.metadata.extractionTime);
+      await this.showSuccessNotification(
+        result.faf.score,
+        result.faf.context.metadata.extractionTime
+      );
 
       console.log(`✅ Extraction completed for tab ${tabId} with score ${result.faf.score}%`);
       return { success: true };
-
     } catch (error) {
       console.error('❌ Post-extraction processing failed:', error);
       throw new ServiceWorkerError(
@@ -625,14 +638,16 @@ class ServiceWorkerManager {
   private async handleKeyboardShortcut(): Promise<void> {
     try {
       const activeTab = await ChromeTabs.getActive();
-      
-      // Trigger extraction via message
-      await this.handleExtractRequest({
-        type: 'EXTRACT_CONTEXT',
-        timestamp: Date.now(),
-        source: 'background'
-      } as ExtractContextMessage, activeTab.id);
 
+      // Trigger extraction via message
+      await this.handleExtractRequest(
+        {
+          type: 'EXTRACT_CONTEXT',
+          timestamp: Date.now(),
+          source: 'background',
+        } as ExtractContextMessage,
+        activeTab.id
+      );
     } catch (error) {
       console.error('❌ Keyboard shortcut extraction failed:', error);
       await this.showErrorNotification(
@@ -695,12 +710,12 @@ class ServiceWorkerManager {
     }
 
     const msg = message as Record<string, unknown>;
-    
+
     return (
-      typeof msg['type'] === 'string' &&
-      typeof msg['timestamp'] === 'number' &&
-      typeof msg['source'] === 'string' &&
-      ['popup', 'content', 'background', 'service-worker'].includes(msg['source'] as string)
+      typeof msg.type === 'string' &&
+      typeof msg.timestamp === 'number' &&
+      typeof msg.source === 'string' &&
+      ['popup', 'content', 'background', 'service-worker'].includes(msg.source as string)
     );
   }
 
@@ -716,17 +731,18 @@ class ServiceWorkerManager {
     const stats = this.state.getStats();
     const activeExtractions = this.state.getActiveExtractionCount();
     const memoryStats = this.state.getMemoryStats();
-    
-    const isHealthy = (
-      stats.lastError === null ||
-      (stats.successfulExtractions > 0 && stats.successfulExtractions > stats.failedExtractions)
-    ) && memoryStats.memoryPressure !== 'high';
+
+    const isHealthy =
+      (stats.lastError === null ||
+        (stats.successfulExtractions > 0 &&
+          stats.successfulExtractions > stats.failedExtractions)) &&
+      memoryStats.memoryPressure !== 'high';
 
     return {
       isHealthy,
       stats,
       activeExtractions,
-      memoryStats
+      memoryStats,
     };
   }
 
@@ -741,21 +757,21 @@ class ServiceWorkerManager {
     };
   } {
     const serviceWorkerHealth = this.getHealthStatus();
-    
+
     // Assess health based on service worker stats
     let overall: 'healthy' | 'warning' | 'critical' = 'healthy';
     const recommendations: string[] = [];
-    
+
     if (!serviceWorkerHealth.isHealthy) {
       overall = 'critical';
       recommendations.push('Service worker experiencing issues - check error logs');
     }
-    
+
     if (serviceWorkerHealth.memoryStats.memoryPressure === 'high') {
       if (overall === 'healthy') overall = 'warning';
       recommendations.push('High memory pressure - consider restart');
     }
-    
+
     const stats = serviceWorkerHealth.stats;
     if (stats.totalExtractions > 5) {
       const successRate = stats.successfulExtractions / stats.totalExtractions;
@@ -764,17 +780,17 @@ class ServiceWorkerManager {
         recommendations.push(`Low success rate: ${Math.round(successRate * 100)}%`);
       }
     }
-    
+
     if (recommendations.length === 0) {
       recommendations.push('All systems operating normally');
     }
-    
+
     return {
       serviceWorker: serviceWorkerHealth,
       combined: {
         overall,
-        recommendations: recommendations as readonly string[]
-      }
+        recommendations: recommendations as readonly string[],
+      },
     };
   }
 
@@ -833,8 +849,9 @@ if ('memory' in performance && typeof (performance as any).memory.usedJSHeapSize
     const memory = (performance as any).memory;
     const used = memory.usedJSHeapSize / 1048576; // MB
     const total = memory.totalJSHeapSize / 1048576; // MB
-    
-    if (used > 50) { // 50MB threshold
+
+    if (used > 50) {
+      // 50MB threshold
       console.warn(`⚠️ High memory usage: ${used.toFixed(1)}MB / ${total.toFixed(1)}MB`);
       const health = manager.getHealthStatus();
       if (health.memoryStats.memoryPressure === 'high') {
@@ -851,7 +868,7 @@ setInterval(() => {
     const health = manager.getHealthStatus();
     if (!health.isHealthy) {
       console.warn('⚠️ Service Worker health check failed:', health);
-      
+
       if (health.memoryStats.memoryPressure === 'high') {
         manager.forceCleanup();
       }
@@ -873,10 +890,10 @@ if (typeof globalThis !== 'undefined') {
         return {
           used: memory.usedJSHeapSize / 1048576,
           total: memory.totalJSHeapSize / 1048576,
-          limit: memory.jsHeapSizeLimit / 1048576
+          limit: memory.jsHeapSizeLimit / 1048576,
         };
       }
       return null;
-    }
+    },
   };
 }

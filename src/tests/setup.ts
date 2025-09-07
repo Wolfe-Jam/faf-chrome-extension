@@ -2,60 +2,60 @@
  * Vitest Test Setup - Chrome Extension Mocks and Global Test Configuration
  */
 
-import { beforeAll, afterEach, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 
 // Mock Chrome APIs globally
 const mockChrome = {
   tabs: {
     query: vi.fn().mockResolvedValue([{ id: 1, url: 'https://github.com/test', active: true }]),
     sendMessage: vi.fn().mockResolvedValue(undefined),
-    get: vi.fn().mockResolvedValue({ id: 1, url: 'https://github.com/test' })
+    get: vi.fn().mockResolvedValue({ id: 1, url: 'https://github.com/test' }),
   },
-  
+
   storage: {
     local: {
       get: vi.fn().mockResolvedValue({}),
       set: vi.fn().mockResolvedValue(undefined),
-      clear: vi.fn().mockResolvedValue(undefined)
-    }
+      clear: vi.fn().mockResolvedValue(undefined),
+    },
   },
-  
+
   action: {
     setBadgeText: vi.fn().mockResolvedValue(undefined),
-    setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined)
+    setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined),
   },
-  
+
   notifications: {
-    create: vi.fn().mockResolvedValue('notification-id')
+    create: vi.fn().mockResolvedValue('notification-id'),
   },
-  
+
   runtime: {
     sendMessage: vi.fn(),
     connect: vi.fn().mockReturnValue({
       postMessage: vi.fn(),
       disconnect: vi.fn(),
       onMessage: { addListener: vi.fn() },
-      onDisconnect: { addListener: vi.fn() }
+      onDisconnect: { addListener: vi.fn() },
     }),
     onMessage: {
-      addListener: vi.fn()
+      addListener: vi.fn(),
     },
     onInstalled: {
-      addListener: vi.fn()
+      addListener: vi.fn(),
     },
     getManifest: vi.fn().mockReturnValue({ version: '1.0.0' }),
-    lastError: null
+    lastError: null,
   },
-  
+
   commands: {
     onCommand: {
-      addListener: vi.fn()
-    }
+      addListener: vi.fn(),
+    },
   },
-  
+
   scripting: {
-    executeScript: vi.fn().mockResolvedValue([])
-  }
+    executeScript: vi.fn().mockResolvedValue([]),
+  },
 };
 
 // Make chrome available globally
@@ -66,9 +66,9 @@ Object.defineProperty(window, 'location', {
   value: {
     hostname: 'github.com',
     pathname: '/facebook/react',
-    href: 'https://github.com/facebook/react'
+    href: 'https://github.com/facebook/react',
   },
-  writable: true
+  writable: true,
 });
 
 // Mock performance API
@@ -79,8 +79,8 @@ Object.defineProperty(window, 'performance', {
     measure: vi.fn(),
     getEntriesByName: vi.fn(() => []),
     clearMarks: vi.fn(),
-    clearMeasures: vi.fn()
-  }
+    clearMeasures: vi.fn(),
+  },
 });
 
 // Mock navigator
@@ -88,9 +88,9 @@ Object.defineProperty(window, 'navigator', {
   value: {
     userAgent: 'Mozilla/5.0 (Chrome Test)',
     clipboard: {
-      writeText: vi.fn().mockResolvedValue(undefined)
-    }
-  }
+      writeText: vi.fn().mockResolvedValue(undefined),
+    },
+  },
 });
 
 // Mock document.execCommand for clipboard fallback
@@ -108,9 +108,9 @@ vi.mock('@/core/telemetry', () => ({
     setUserId: vi.fn(),
     startTimer: vi.fn(() => vi.fn()),
     trackMemoryUsage: vi.fn(),
-    trackNetworkRequest: vi.fn()
+    trackNetworkRequest: vi.fn(),
   },
-  trackPerformance: vi.fn().mockImplementation(async (name, operation) => {
+  trackPerformance: vi.fn().mockImplementation(async (_name, operation) => {
     return await operation();
   }),
   ProductionTelemetry: vi.fn(),
@@ -118,15 +118,15 @@ vi.mock('@/core/telemetry', () => ({
     TelemetryConfig: vi.fn(),
     PerformanceMetric: vi.fn(),
     ErrorReport: vi.fn(),
-    UserEvent: vi.fn()
-  }
+    UserEvent: vi.fn(),
+  },
 }));
 
 // Mock ResizeObserver (often needed for React components)
 global.ResizeObserver = vi.fn().mockImplementation(() => ({
   observe: vi.fn(),
   unobserve: vi.fn(),
-  disconnect: vi.fn()
+  disconnect: vi.fn(),
 }));
 
 beforeAll(() => {
@@ -137,7 +137,7 @@ beforeAll(() => {
 afterEach(() => {
   // Reset all mocks after each test
   vi.clearAllMocks();
-  
+
   // Reset chrome mock state
   (global as any).chrome.runtime.lastError = null;
 });

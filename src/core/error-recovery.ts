@@ -3,13 +3,7 @@
  * Automatic retry logic, fallback strategies, and graceful degradation
  */
 
-import { 
-  FAFError, 
-  FAFErrorCode, 
-  FAFErrorSeverity, 
-  FAFRecoveryStrategy,
-  ErrorUtils
-} from '@/core/errors';
+import { FAFError, FAFErrorCode, FAFErrorSeverity, FAFRecoveryStrategy } from '@/core/errors';
 import { telemetry } from '@/core/telemetry';
 
 export interface RetryConfig {
@@ -22,10 +16,10 @@ export interface RetryConfig {
 
 export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   maxAttempts: 3,
-  baseDelay: 1000,      // 1 second
-  maxDelay: 10000,      // 10 seconds
-  backoffFactor: 2,     // Exponential backoff
-  timeout: 30000        // 30 second total timeout
+  baseDelay: 1000, // 1 second
+  maxDelay: 10000, // 10 seconds
+  backoffFactor: 2, // Exponential backoff
+  timeout: 30000, // 30 second total timeout
 };
 
 /**
@@ -57,7 +51,7 @@ export class ErrorRecoveryService {
   ): Promise<T> {
     const { operationId, context = 'unknown' } = options;
     const config = { ...DEFAULT_RETRY_CONFIG, ...options.retryConfig };
-    
+
     let lastError: FAFError | null = null;
     const startTime = Date.now();
 
@@ -67,18 +61,18 @@ export class ErrorRecoveryService {
     for (let attempt = 1; attempt <= config.maxAttempts; attempt++) {
       try {
         // Check global timeout
-        if (config.timeout && (Date.now() - startTime) > config.timeout) {
+        if (config.timeout && Date.now() - startTime > config.timeout) {
           throw new FAFError(FAFErrorCode.EXTRACTION_TIMEOUT, 'Operation timeout exceeded', {
-            context: { timestamp: Date.now() }
+            context: { timestamp: Date.now() },
           });
         }
 
         // Execute the operation
         const result = await this.executeWithTimeout(operation, config.timeout);
-        
+
         // Success - clear retry count and return
         this.retryAttempts.delete(operationId);
-        
+
         // Track successful recovery if this wasn't the first attempt
         if (attempt > 1) {
           telemetry.track('error_boundary', {
@@ -86,21 +80,23 @@ export class ErrorRecoveryService {
             operationId,
             context,
             attemptsRequired: attempt,
-            duration: Date.now() - startTime
+            duration: Date.now() - startTime,
           });
         }
 
         return result;
-
       } catch (error) {
-        lastError = error instanceof FAFError ? error : FAFError.fromUnknown(error, {
-          timestamp: Date.now()
-        });
+        lastError =
+          error instanceof FAFError
+            ? error
+            : FAFError.fromUnknown(error, {
+                timestamp: Date.now(),
+              });
 
         console.warn(`[${context}] Attempt ${attempt}/${config.maxAttempts} failed:`, {
           error: lastError.code,
           message: lastError.message,
-          severity: lastError.severity
+          severity: lastError.severity,
         });
 
         // Track retry attempt
@@ -113,7 +109,7 @@ export class ErrorRecoveryService {
 
         // Calculate delay with jitter
         const delay = this.calculateDelay(attempt, config);
-        
+
         // Wait before retry (if not the last attempt)
         if (attempt < config.maxAttempts) {
           await this.delay(delay);
@@ -124,26 +120,28 @@ export class ErrorRecoveryService {
     // All retries exhausted - try fallback if available
     if (options.fallbackOperation) {
       try {
-        console.log(`[${context}] Trying fallback operation after ${config.maxAttempts} failed attempts`);
-        
+        console.log(
+          `[${context}] Trying fallback operation after ${config.maxAttempts} failed attempts`
+        );
+
         const fallbackResult = await options.fallbackOperation();
-        
+
         // Track successful fallback
         telemetry.track('error_boundary', {
           type: 'fallback_success',
           operationId,
           context,
           originalError: lastError?.code,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         return fallbackResult;
-
       } catch (fallbackError) {
         // Fallback also failed
-        const fafFallbackError = fallbackError instanceof FAFError ? 
-          fallbackError : 
-          FAFError.fromUnknown(fallbackError, { timestamp: Date.now() });
+        const fafFallbackError =
+          fallbackError instanceof FAFError
+            ? fallbackError
+            : FAFError.fromUnknown(fallbackError, { timestamp: Date.now() });
 
         telemetry.track('error_boundary', {
           type: 'fallback_failed',
@@ -151,11 +149,16 @@ export class ErrorRecoveryService {
           context,
           originalError: lastError?.code,
           fallbackError: fafFallbackError.code,
-          duration: Date.now() - startTime
+          duration: Date.now() - startTime,
         });
 
         // Throw the more severe of the two errors
-        if (this.compareSeverity(fafFallbackError.severity, lastError?.severity || FAFErrorSeverity.LOW) >= 0) {
+        if (
+          this.compareSeverity(
+            fafFallbackError.severity,
+            lastError?.severity || FAFErrorSeverity.LOW
+          ) >= 0
+        ) {
           throw fafFallbackError;
         }
       }
@@ -163,17 +166,20 @@ export class ErrorRecoveryService {
 
     // No recovery possible - clean up and throw final error
     this.retryAttempts.delete(operationId);
-    
+
     telemetry.track('error_boundary', {
       type: 'recovery_failed',
       operationId,
       context,
       finalError: lastError?.code,
       attemptsUsed: config.maxAttempts,
-      duration: Date.now() - startTime
+      duration: Date.now() - startTime,
     });
 
-    throw lastError || new FAFError(FAFErrorCode.UNKNOWN_ERROR, 'Operation failed after all recovery attempts');
+    throw (
+      lastError ||
+      new FAFError(FAFErrorCode.UNKNOWN_ERROR, 'Operation failed after all recovery attempts')
+    );
   }
 
   /**
@@ -192,7 +198,7 @@ export class ErrorRecoveryService {
     readonly actions: readonly string[];
   }> {
     const fafError = error instanceof FAFError ? error : FAFError.fromUnknown(error);
-    
+
     // Track error occurrence
     telemetry.track('error_boundary', {
       type: 'error_handled',
@@ -200,7 +206,7 @@ export class ErrorRecoveryService {
       operationType: context.operationType,
       errorCode: fafError.code,
       severity: fafError.severity,
-      recoveryStrategy: fafError.recoveryStrategy
+      recoveryStrategy: fafError.recoveryStrategy,
     });
 
     // Determine recovery approach based on error type
@@ -209,42 +215,46 @@ export class ErrorRecoveryService {
         return {
           recovered: false,
           suggestion: 'This issue is usually temporary. Try the operation again.',
-          actions: ['Retry now', 'Wait 30 seconds and retry', 'Refresh page and retry']
+          actions: ['Retry now', 'Wait 30 seconds and retry', 'Refresh page and retry'],
         };
 
       case FAFRecoveryStrategy.FALLBACK:
         return {
           recovered: await this.attemptFallbackRecovery(fafError, context),
           suggestion: 'Switched to alternative method due to the issue.',
-          actions: ['Continue with limited functionality', 'Try full operation later', 'Check settings']
+          actions: [
+            'Continue with limited functionality',
+            'Try full operation later',
+            'Check settings',
+          ],
         };
 
       case FAFRecoveryStrategy.GRACEFUL_DEGRADATION:
         return {
           recovered: true,
           suggestion: 'Continuing with reduced functionality to work around the issue.',
-          actions: ['Continue anyway', 'Try on different page', 'Report issue']
+          actions: ['Continue anyway', 'Try on different page', 'Report issue'],
         };
 
       case FAFRecoveryStrategy.USER_ACTION_REQUIRED:
         return {
           recovered: false,
           suggestion: 'User action is required to resolve this issue.',
-          actions: fafError.recoveryActions
+          actions: fafError.recoveryActions,
         };
 
       case FAFRecoveryStrategy.RESTART_REQUIRED:
         return {
           recovered: false,
           suggestion: 'Extension restart is required to fix this issue.',
-          actions: ['Restart browser', 'Reload extension', 'Check for updates']
+          actions: ['Restart browser', 'Reload extension', 'Check for updates'],
         };
 
       default:
         return {
           recovered: false,
           suggestion: 'This error requires manual resolution.',
-          actions: ['Try again later', 'Check browser console', 'Report issue']
+          actions: ['Try again later', 'Check browser console', 'Report issue'],
         };
     }
   }
@@ -276,49 +286,54 @@ export class ErrorRecoveryService {
 
     // Base recommendations by error category
     const errorCategory = this.categorizeError(fafError.code);
-    
+
     switch (errorCategory) {
       case 'platform':
         return {
-          immediate: ['Refresh the page', 'Wait for page to fully load', 'Try on supported platform'],
+          immediate: [
+            'Refresh the page',
+            'Wait for page to fully load',
+            'Try on supported platform',
+          ],
           followUp: ['Check internet connection', 'Clear browser cache', 'Update browser'],
-          prevention: ['Use supported development platforms', 'Ensure stable internet connection']
+          prevention: ['Use supported development platforms', 'Ensure stable internet connection'],
         };
 
       case 'permissions':
         return {
-          immediate: ['Check extension permissions', 'Grant required permissions', 'Reload extension'],
+          immediate: [
+            'Check extension permissions',
+            'Grant required permissions',
+            'Reload extension',
+          ],
           followUp: ['Restart browser', 'Reinstall extension if needed'],
-          prevention: ['Keep extension permissions up to date', 'Avoid revoking permissions']
+          prevention: ['Keep extension permissions up to date', 'Avoid revoking permissions'],
         };
 
       case 'performance':
         return {
           immediate: ['Close unused tabs', 'Wait and retry', 'Reduce complexity'],
           followUp: ['Restart browser', 'Check system resources'],
-          prevention: ['Limit concurrent operations', 'Use smaller code sections']
+          prevention: ['Limit concurrent operations', 'Use smaller code sections'],
         };
 
       case 'network':
         return {
           immediate: ['Check internet connection', 'Retry in a moment', 'Try different network'],
           followUp: ['Clear browser cache', 'Disable VPN if used'],
-          prevention: ['Use stable internet connection', 'Avoid peak usage times']
+          prevention: ['Use stable internet connection', 'Avoid peak usage times'],
         };
 
       default:
         return {
           immediate: fafError.recoveryActions,
           followUp: ['Restart browser', 'Check for updates'],
-          prevention: ['Keep extension updated', 'Use supported browsers']
+          prevention: ['Keep extension updated', 'Use supported browsers'],
         };
     }
   }
 
-  private async executeWithTimeout<T>(
-    operation: () => Promise<T>,
-    timeout?: number
-  ): Promise<T> {
+  private async executeWithTimeout<T>(operation: () => Promise<T>, timeout?: number): Promise<T> {
     if (!timeout) {
       return operation();
     }
@@ -327,9 +342,11 @@ export class ErrorRecoveryService {
       operation(),
       new Promise<never>((_, reject) => {
         setTimeout(() => {
-          reject(new FAFError(FAFErrorCode.EXTRACTION_TIMEOUT, `Operation timed out after ${timeout}ms`));
+          reject(
+            new FAFError(FAFErrorCode.EXTRACTION_TIMEOUT, `Operation timed out after ${timeout}ms`)
+          );
         }, timeout);
-      })
+      }),
     ]);
   }
 
@@ -340,9 +357,11 @@ export class ErrorRecoveryService {
     }
 
     // Don't retry critical errors or those that require user action
-    if (error.severity === FAFErrorSeverity.CRITICAL || 
-        error.recoveryStrategy === FAFRecoveryStrategy.USER_ACTION_REQUIRED ||
-        error.recoveryStrategy === FAFRecoveryStrategy.NO_RECOVERY) {
+    if (
+      error.severity === FAFErrorSeverity.CRITICAL ||
+      error.recoveryStrategy === FAFRecoveryStrategy.USER_ACTION_REQUIRED ||
+      error.recoveryStrategy === FAFRecoveryStrategy.NO_RECOVERY
+    ) {
       return false;
     }
 
@@ -350,20 +369,20 @@ export class ErrorRecoveryService {
     const nonRetryableErrors = [
       FAFErrorCode.CHROME_PERMISSIONS_MISSING,
       FAFErrorCode.PLATFORM_NOT_SUPPORTED,
-      FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION
+      FAFErrorCode.CONTENT_SCRIPT_CSP_VIOLATION,
     ];
 
     return !nonRetryableErrors.includes(error.code);
   }
 
   private calculateDelay(attempt: number, config: RetryConfig): number {
-    const baseDelay = config.baseDelay * Math.pow(config.backoffFactor, attempt - 1);
+    const baseDelay = config.baseDelay * config.backoffFactor ** (attempt - 1);
     const jitter = Math.random() * 0.1 * baseDelay; // 10% jitter
     return Math.min(baseDelay + jitter, config.maxDelay);
   }
 
   private async delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private clearRetryTimer(operationId: string): void {
@@ -377,9 +396,9 @@ export class ErrorRecoveryService {
   private compareSeverity(severity1: FAFErrorSeverity, severity2: FAFErrorSeverity): number {
     const severityOrder = [
       FAFErrorSeverity.LOW,
-      FAFErrorSeverity.MEDIUM, 
+      FAFErrorSeverity.MEDIUM,
       FAFErrorSeverity.HIGH,
-      FAFErrorSeverity.CRITICAL
+      FAFErrorSeverity.CRITICAL,
     ];
 
     return severityOrder.indexOf(severity1) - severityOrder.indexOf(severity2);
@@ -387,18 +406,18 @@ export class ErrorRecoveryService {
 
   private async attemptFallbackRecovery(
     error: FAFError,
-    context: { readonly operationId: string; readonly operationType: string }
+    _context: { readonly operationId: string; readonly operationType: string }
   ): Promise<boolean> {
     // Specific fallback strategies based on error type
     switch (error.code) {
       case FAFErrorCode.CLIPBOARD_PERMISSION_DENIED:
         // Could implement manual copy fallback
         return true;
-        
+
       case FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED:
         // Could implement alternative detection method
         return false; // Not implemented yet
-        
+
       case FAFErrorCode.CHROME_STORAGE_QUOTA_EXCEEDED:
         // Could implement memory cleanup
         try {
@@ -407,16 +426,19 @@ export class ErrorRecoveryService {
         } catch {
           return false;
         }
-        
+
       default:
         return false;
     }
   }
 
-  private categorizeError(code: FAFErrorCode): 'platform' | 'permissions' | 'performance' | 'network' | 'unknown' {
+  private categorizeError(
+    code: FAFErrorCode
+  ): 'platform' | 'permissions' | 'performance' | 'network' | 'unknown' {
     if (code.includes('PLATFORM')) return 'platform';
     if (code.includes('PERMISSION') || code.includes('ACCESS')) return 'permissions';
-    if (code.includes('TIMEOUT') || code.includes('MEMORY') || code.includes('QUOTA')) return 'performance';
+    if (code.includes('TIMEOUT') || code.includes('MEMORY') || code.includes('QUOTA'))
+      return 'performance';
     if (code.includes('NETWORK') || code.includes('REQUEST')) return 'network';
     return 'unknown';
   }
@@ -434,24 +456,17 @@ export function withRetry<Args extends readonly any[], Return>(
   retryConfig: Partial<RetryConfig> = {},
   operationId?: string
 ) {
-  return function(
-    target: any,
-    propertyName: string,
-    descriptor: PropertyDescriptor
-  ) {
+  return (target: any, propertyName: string, descriptor: PropertyDescriptor) => {
     const method = descriptor.value;
-    
-    descriptor.value = async function(...args: Args): Promise<Return> {
+
+    descriptor.value = async function (...args: Args): Promise<Return> {
       const id = operationId || `${target.constructor.name}.${propertyName}`;
-      
-      return errorRecovery.withRecovery(
-        () => method.apply(this, args),
-        {
-          operationId: id,
-          retryConfig,
-          context: `${target.constructor.name}.${propertyName}`
-        }
-      );
+
+      return errorRecovery.withRecovery(() => method.apply(this, args), {
+        operationId: id,
+        retryConfig,
+        context: `${target.constructor.name}.${propertyName}`,
+      });
     };
 
     return descriptor;

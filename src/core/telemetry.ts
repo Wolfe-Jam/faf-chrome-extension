@@ -72,16 +72,15 @@ class ProductionTelemetry {
           action: 'global_error',
           url: event.filename,
           line: event.lineno,
-          column: event.colno
+          column: event.colno,
         });
       });
 
       // Unhandled promise rejection handler
       window.addEventListener('unhandledrejection', (event) => {
-        this.reportError(
-          new Error(`Unhandled Promise Rejection: ${event.reason}`),
-          { action: 'unhandled_promise_rejection' }
-        );
+        this.reportError(new Error(`Unhandled Promise Rejection: ${event.reason}`), {
+          action: 'unhandled_promise_rejection',
+        });
       });
     }
   }
@@ -108,12 +107,12 @@ class ProductionTelemetry {
       const startTime = performance.now();
       // chrome.runtime.connect({ name: 'telemetry' });
       const connectionTime = performance.now() - startTime;
-      
+
       this.recordMetric({
         name: 'service_worker_connection_time',
         value: connectionTime,
         unit: 'ms',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
 
@@ -126,7 +125,7 @@ class ProductionTelemetry {
           name: 'content_script_injection_time',
           value: injectionTime,
           unit: 'ms',
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
       });
     }
@@ -141,34 +140,34 @@ class ProductionTelemetry {
       {
         name: 'dom_content_loaded',
         value: timing.domContentLoadedEventEnd - timing.navigationStart,
-        unit: 'ms' as const
+        unit: 'ms' as const,
       },
       {
         name: 'page_load_complete',
         value: timing.loadEventEnd - timing.navigationStart,
-        unit: 'ms' as const
+        unit: 'ms' as const,
       },
       {
         name: 'dns_lookup_time',
         value: timing.domainLookupEnd - timing.domainLookupStart,
-        unit: 'ms' as const
+        unit: 'ms' as const,
       },
       {
         name: 'tcp_connection_time',
         value: timing.connectEnd - timing.connectStart,
-        unit: 'ms' as const
-      }
+        unit: 'ms' as const,
+      },
     ];
 
-    metrics.forEach(metric => {
+    metrics.forEach((metric) => {
       if (metric.value > 0) {
         this.recordMetric({
           ...metric,
           timestamp: Date.now(),
           metadata: {
             navigationType: navigation.type,
-            redirectCount: navigation.redirectCount
-          }
+            redirectCount: navigation.redirectCount,
+          },
         });
       }
     });
@@ -180,14 +179,14 @@ class ProductionTelemetry {
         name: 'memory_used',
         value: memory.usedJSHeapSize,
         unit: 'bytes',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
-      
+
       this.recordMetric({
         name: 'memory_limit',
         value: memory.jsHeapSizeLimit,
         unit: 'bytes',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     }
   }
@@ -233,7 +232,7 @@ class ProductionTelemetry {
       error: {
         name: error.name,
         message: error.message,
-        stack: error.stack || ''
+        stack: error.stack || '',
       } as Error,
       context: {
         userAgent: navigator.userAgent,
@@ -241,10 +240,10 @@ class ProductionTelemetry {
         sessionId: this.sessionId,
         userId: this.userId,
         extensionVersion: this.getExtensionVersion(),
-        ...context
+        ...context,
       },
       stackTrace: error.stack || '',
-      breadcrumbs: [...this.breadcrumbs]
+      breadcrumbs: [...this.breadcrumbs],
     };
 
     // Store locally first
@@ -275,11 +274,11 @@ class ProductionTelemetry {
       properties: {
         ...properties,
         extensionVersion: this.getExtensionVersion(),
-        environment: this.config.environment
+        environment: this.config.environment,
       },
       timestamp: Date.now(),
       sessionId: this.sessionId,
-      userId: this.userId
+      userId: this.userId,
     };
 
     // Store locally
@@ -302,7 +301,10 @@ class ProductionTelemetry {
     this.sendUserEvent(userEvent);
   }
 
-  async trackExtraction(phase: 'start' | 'complete' | 'error' | 'fallback', properties: Record<string, any> = {}): Promise<void> {
+  async trackExtraction(
+    phase: 'start' | 'complete' | 'error' | 'fallback',
+    properties: Record<string, any> = {}
+  ): Promise<void> {
     return this.trackUserEvent(`extraction_${phase}`, properties);
   }
 
@@ -364,15 +366,15 @@ class ProductionTelemetry {
       timestamp: Date.now(),
       sessionId: this.sessionId,
       userId: this.userId,
-      environment: this.config.environment
+      environment: this.config.environment,
     };
 
     const response = await fetch(`${this.config.endpoint}/${type}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -391,14 +393,14 @@ class ProductionTelemetry {
   // Performance timing utilities
   startTimer(name: string): () => void {
     const startTime = performance.now();
-    
+
     return () => {
       const duration = performance.now() - startTime;
       this.recordMetric({
         name,
         value: duration,
         unit: 'ms',
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
     };
   }
@@ -412,7 +414,7 @@ class ProductionTelemetry {
         value: memory.usedJSHeapSize,
         unit: 'bytes',
         timestamp: Date.now(),
-        metadata: { context }
+        metadata: { context },
       });
     }
   }
@@ -428,8 +430,8 @@ class ProductionTelemetry {
         url: url.replace(/[?#].*/, ''), // Remove query params for privacy
         method,
         status,
-        success: status >= 200 && status < 400
-      }
+        success: status >= 200 && status < 400,
+      },
     });
   }
 }
@@ -438,8 +440,9 @@ class ProductionTelemetry {
 const createTelemetry = (): ProductionTelemetry => {
   // Use fallback values since process.env doesn't exist in Chrome extension service workers
   const nodeEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV) || 'production';
-  const telemetryEndpoint = (typeof process !== 'undefined' && process.env?.TELEMETRY_ENDPOINT) || undefined;
-  
+  const telemetryEndpoint =
+    (typeof process !== 'undefined' && process.env?.TELEMETRY_ENDPOINT) || undefined;
+
   const isDevelopment = nodeEnv === 'development';
   const isProduction = nodeEnv === 'production';
 
@@ -449,14 +452,17 @@ const createTelemetry = (): ProductionTelemetry => {
     enablePerformanceTracking: true,
     enableUserAnalytics: isProduction,
     sampleRate: isDevelopment ? 1.0 : 0.1, // 100% in dev, 10% in prod
-    endpoint: telemetryEndpoint
+    endpoint: telemetryEndpoint,
   };
 
   return new ProductionTelemetry(config);
 };
 
 // Performance tracking utility function
-export const trackPerformance = async <T>(name: string, operation: () => Promise<T>): Promise<T> => {
+export const trackPerformance = async <T>(
+  name: string,
+  operation: () => Promise<T>
+): Promise<T> => {
   const timer = telemetry.startTimer(name);
   try {
     const result = await operation();
@@ -469,4 +475,10 @@ export const trackPerformance = async <T>(name: string, operation: () => Promise
 };
 
 export const telemetry = createTelemetry();
-export { ProductionTelemetry, type TelemetryConfig, type PerformanceMetric, type ErrorReport, type UserEvent };
+export {
+  ProductionTelemetry,
+  type TelemetryConfig,
+  type PerformanceMetric,
+  type ErrorReport,
+  type UserEvent,
+};

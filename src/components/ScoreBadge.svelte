@@ -1,15 +1,15 @@
 <script lang="ts">
-  export let score: number;
-  export let platform: string;
-  export let fileCount: number;
+export let score: number;
+export let platform: string;
+export let fileCount: number;
 
-  // Get score color based on value
-  function getScoreColor(score: number): string {
-    if (score >= 90) return '#10b981'; // green-500
-    if (score >= 70) return '#3b82f6'; // blue-500
-    if (score >= 50) return '#f59e0b'; // amber-500
-    return '#ef4444'; // red-500
-  }
+// Get score color based on value
+function _getScoreColor(score: number): string {
+  if (score >= 90) return '#10b981'; // green-500
+  if (score >= 70) return '#3b82f6'; // blue-500
+  if (score >= 50) return '#f59e0b'; // amber-500
+  return '#ef4444'; // red-500
+}
 </script>
 
 <div class="score-section">

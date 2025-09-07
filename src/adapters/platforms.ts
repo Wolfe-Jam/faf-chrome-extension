@@ -3,10 +3,9 @@
  * Type-safe platform-specific logic
  */
 
-import type { FileInfo, Platform, CodeContext } from '@/core/types';
-import { createScore as makeScore } from '@/core/types';
 import { FAFError, FAFErrorCode } from '@/core/errors';
-import { withErrorBoundary } from '@/core/errors';
+import type { CodeContext, FileInfo, Platform } from '@/core/types';
+import { createScore as makeScore } from '@/core/types';
 
 export interface WindowWithEditors extends Window {
   monaco?: {
@@ -44,22 +43,24 @@ export class PlatformDetector {
   private readonly maxTimeout = 100; // 100ms timeout for DOM operations
 
   // Cache management
-  private cachedResult: {
-    platform: Platform;
-    timestamp: number;
-    confidence: number;
-  } | undefined = undefined;
-  
-  // Race condition prevention  
+  private cachedResult:
+    | {
+        platform: Platform;
+        timestamp: number;
+        confidence: number;
+      }
+    | undefined = undefined;
+
+  // Race condition prevention
   private activeDetection: Promise<Platform> | undefined = undefined;
-  
+
   // Cache validity (5 seconds for page navigation detection)
   private readonly CACHE_TTL = 5000;
 
   constructor() {
     this.hostname = window.location.hostname;
     this.pathname = window.location.pathname;
-    
+
     // Invalidate cache on navigation
     this.setupNavigationListeners();
   }
@@ -73,15 +74,15 @@ export class PlatformDetector {
     if (this.activeDetection) {
       return this.activeDetection;
     }
-    
+
     // 2. If cache is fresh, return immediately (fast path)
     if (this.isCacheFresh()) {
-      return Promise.resolve(this.cachedResult!.platform);
+      return Promise.resolve(this.cachedResult?.platform);
     }
-    
+
     // 3. Start new detection with lock to prevent concurrent calls
     this.activeDetection = this.performDetection()
-      .then(platform => {
+      .then((platform) => {
         this.cacheResult(platform);
         return platform;
       })
@@ -89,7 +90,7 @@ export class PlatformDetector {
         // Clear lock when done (success or failure)
         this.activeDetection = undefined;
       });
-    
+
     return this.activeDetection;
   }
 
@@ -105,7 +106,7 @@ export class PlatformDetector {
    * Get cached platform without triggering detection
    */
   getCached(): Platform | null {
-    return this.isCacheFresh() ? this.cachedResult!.platform : null;
+    return this.isCacheFresh() ? this.cachedResult?.platform : null;
   }
 
   private isCacheFresh(): boolean {
@@ -118,7 +119,7 @@ export class PlatformDetector {
     this.cachedResult = {
       platform,
       timestamp: Date.now(),
-      confidence: this.calculateConfidence(platform)
+      confidence: this.calculateConfidence(platform),
     };
   }
 
@@ -128,10 +129,10 @@ export class PlatformDetector {
     if (platform === 'gitlab' && this.hostname.includes('gitlab')) return 95;
     if (platform === 'monaco' && window.monaco) return 90;
     if (platform === 'stackblitz' && this.hostname.includes('stackblitz')) return 90;
-    
+
     // Medium confidence for DOM-based detection
     if (platform !== 'unknown' && platform !== 'has-code') return 75;
-    
+
     // Low confidence fallbacks
     return 50;
   }
@@ -147,7 +148,7 @@ export class PlatformDetector {
 
   private async performDetection(): Promise<Platform> {
     performance.mark('platform-detection-start');
-    
+
     try {
       // Fast checks first (5-10ms) - URL and global checks
       const fastResult = this.detectFastPath();
@@ -163,28 +164,31 @@ export class PlatformDetector {
 
       // Final fallback - user agent detection
       return this.detectFromUserAgent();
-      
     } catch (error) {
       // Convert to standardized FAF error
       if (error instanceof Error && error.message.includes('timeout')) {
-        throw new FAFError(FAFErrorCode.PLATFORM_DETECTION_TIMEOUT, 'Platform detection timed out', {
-          cause: error,
-          context: { 
-            platform: 'unknown',
-            url: window.location.href,
-            timestamp: Date.now()
+        throw new FAFError(
+          FAFErrorCode.PLATFORM_DETECTION_TIMEOUT,
+          'Platform detection timed out',
+          {
+            cause: error,
+            context: {
+              platform: 'unknown',
+              url: window.location.href,
+              timestamp: Date.now(),
+            },
           }
-        });
+        );
       }
 
       if (error instanceof Error && error.message.includes('DOM')) {
         throw new FAFError(FAFErrorCode.PLATFORM_DOM_ACCESS_DENIED, 'Cannot access page DOM', {
           cause: error,
-          context: { 
+          context: {
             platform: 'unknown',
             url: window.location.href,
-            timestamp: Date.now()
-          }
+            timestamp: Date.now(),
+          },
         });
       }
 
@@ -196,16 +200,19 @@ export class PlatformDetector {
       // Wrap unknown errors
       throw new FAFError(FAFErrorCode.PLATFORM_DETECTION_FAILED, 'Platform detection failed', {
         cause: error instanceof Error ? error : new Error(String(error)),
-        context: { 
+        context: {
           platform: 'unknown',
           url: window.location.href,
-          timestamp: Date.now()
-        }
+          timestamp: Date.now(),
+        },
       });
-      
     } finally {
       performance.mark('platform-detection-end');
-      performance.measure('platform-detection', 'platform-detection-start', 'platform-detection-end');
+      performance.measure(
+        'platform-detection',
+        'platform-detection-start',
+        'platform-detection-end'
+      );
     }
   }
 
@@ -216,18 +223,17 @@ export class PlatformDetector {
     return this.detect();
   }
 
-
   /**
    * Extract complete context with platform-specific strategies
    */
   async extractContextAsync(): Promise<CodeContext> {
     performance.mark('context-extraction-start');
-    
+
     try {
       const platform = await this.detect();
-      
+
       let extractedData;
-      
+
       switch (platform) {
         case 'monaco':
           extractedData = await this.extractMonacoContext();
@@ -252,14 +258,22 @@ export class PlatformDetector {
       }
 
       performance.mark('context-extraction-end');
-      performance.measure('context-extraction', 'context-extraction-start', 'context-extraction-end');
+      performance.measure(
+        'context-extraction',
+        'context-extraction-start',
+        'context-extraction-end'
+      );
 
       return this.buildCodeContext(platform, extractedData);
     } catch (error) {
       console.warn('Context extraction failed:', error);
       performance.mark('context-extraction-end');
-      performance.measure('context-extraction', 'context-extraction-start', 'context-extraction-end');
-      
+      performance.measure(
+        'context-extraction',
+        'context-extraction-start',
+        'context-extraction-end'
+      );
+
       // Return fallback context
       return this.buildFallbackContext();
     }
@@ -271,7 +285,7 @@ export class PlatformDetector {
   private detectFastPath(): Platform {
     // Monaco detection - highest priority (VS Code Web, StackBlitz often use Monaco)
     if (this.isMonacoAvailable()) return 'monaco';
-    
+
     // URL-based detection (immediate)
     if (this.hostname.includes('github.com')) return 'github';
     if (this.hostname.includes('gitlab.com')) return 'gitlab';
@@ -281,10 +295,10 @@ export class PlatformDetector {
     if (this.hostname.includes('vscode.dev')) return 'vscode-web';
     if (this.hostname.includes('github.dev')) return 'vscode-web';
     if (this.isLocalhost()) return 'localhost';
-    
+
     // CodeMirror detection
     if (this.isCodeMirrorAvailable()) return 'codemirror';
-    
+
     return 'unknown';
   }
 
@@ -315,12 +329,12 @@ export class PlatformDetector {
   private async performAsyncDetection(): Promise<Platform> {
     // Wait for DOM to be ready
     await this.waitForDOM();
-    
+
     // Check for code elements in DOM
     if (this.hasSignificantCodeElements()) {
       return 'has-code';
     }
-    
+
     return 'unknown';
   }
 
@@ -329,7 +343,9 @@ export class PlatformDetector {
    */
   private isMonacoAvailable(): boolean {
     try {
-      return 'monaco' in window && window.monaco != null && typeof window.monaco.editor !== 'undefined';
+      return (
+        'monaco' in window && window.monaco != null && typeof window.monaco.editor !== 'undefined'
+      );
     } catch {
       return false;
     }
@@ -344,7 +360,11 @@ export class PlatformDetector {
   }
 
   private isLocalhost(): boolean {
-    return this.hostname === 'localhost' || this.hostname === '127.0.0.1' || this.hostname.includes('localhost');
+    return (
+      this.hostname === 'localhost' ||
+      this.hostname === '127.0.0.1' ||
+      this.hostname.includes('localhost')
+    );
   }
 
   private hasSignificantCodeElements(): boolean {
@@ -355,15 +375,15 @@ export class PlatformDetector {
         '.hljs',
         '[class*="language-"]',
         '[class*="lang-"]',
-        '.code-block'
+        '.code-block',
       ];
-      
+
       let totalCodeElements = 0;
       for (const selector of codeSelectors) {
         totalCodeElements += document.querySelectorAll(selector).length;
         if (totalCodeElements >= 3) return true; // Threshold for "significant"
       }
-      
+
       return false;
     } catch {
       return false;
@@ -378,63 +398,6 @@ export class PlatformDetector {
         document.addEventListener('DOMContentLoaded', () => resolve(), { once: true });
       }
     });
-  }
-
-  /**
-   * URL-based platform detection (fallback strategy)
-   */
-  private detectFromURL(): Platform {
-    try {
-      const hostname = window.location.hostname.toLowerCase();
-      const pathname = window.location.pathname.toLowerCase();
-
-      // GitHub detection
-      if (hostname.includes('github.com') || hostname.includes('github.io')) {
-        return 'github';
-      }
-
-      // GitLab detection
-      if (hostname.includes('gitlab.com') || hostname.includes('gitlab.io')) {
-        return 'gitlab';
-      }
-
-      // StackBlitz detection
-      if (hostname.includes('stackblitz.com') || hostname.includes('stackblitz.io')) {
-        return 'stackblitz';
-      }
-
-      // CodeSandbox detection
-      if (hostname.includes('codesandbox.io') || hostname.includes('csb.app')) {
-        return 'codesandbox';
-      }
-
-      // CodePen detection
-      if (hostname.includes('codepen.io') || hostname.includes('codepen.com')) {
-        return 'codepen';
-      }
-
-      // VS Code Web detection
-      if (hostname.includes('vscode.dev') || pathname.includes('vscode')) {
-        return 'vscode-web';
-      }
-
-      // Localhost detection
-      if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname.startsWith('192.168.')) {
-        return 'localhost';
-      }
-
-      // Check for common dev server ports
-      const port = window.location.port;
-      const devPorts = ['3000', '3001', '4200', '5173', '8000', '8080', '9000'];
-      if (port && devPorts.includes(port)) {
-        return 'localhost';
-      }
-
-    } catch (error) {
-      console.warn('URL-based detection failed:', error);
-    }
-
-    return 'unknown';
   }
 
   /**
@@ -459,65 +422,11 @@ export class PlatformDetector {
       if (typeof (window as any).acquireVsCodeApi === 'function') {
         return 'vscode-web';
       }
-
     } catch (error) {
       console.warn('User agent detection failed:', error);
     }
 
     return 'unknown';
-  }
-
-  /**
-   * Circuit breaker pattern for detection failures
-   */
-  private readonly circuitBreaker = {
-    failures: 0,
-    maxFailures: 5,
-    resetTimeout: 60000, // 1 minute
-    lastFailureTime: 0,
-
-    isOpen(): boolean {
-      const now = Date.now();
-      if (this.failures >= this.maxFailures) {
-        if (now - this.lastFailureTime > this.resetTimeout) {
-          // Reset the circuit breaker
-          this.failures = 0;
-          return false;
-        }
-        return true;
-      }
-      return false;
-    },
-
-    recordFailure(): void {
-      this.failures++;
-      this.lastFailureTime = Date.now();
-    },
-
-    recordSuccess(): void {
-      this.failures = 0;
-    }
-  };
-
-  /**
-   * Enhanced detection with circuit breaker protection
-   */
-  private async __detectWithCircuitBreaker(): Promise<Platform> {
-    // Check if circuit breaker is open
-    if (this.circuitBreaker.isOpen()) {
-      console.warn('🚫 Platform detection circuit breaker is open - using fallback');
-      return this.detectFromURL() || 'unknown';
-    }
-
-    try {
-      const result = await this.detect();
-      this.circuitBreaker.recordSuccess();
-      return result;
-    } catch (error) {
-      this.circuitBreaker.recordFailure();
-      console.error('Platform detection failed, circuit breaker triggered:', error);
-      return 'unknown';
-    }
   }
 
   /**
@@ -533,13 +442,13 @@ export class PlatformDetector {
       const files: FileInfo[] = models.map((model): FileInfo => {
         const uri = model.uri.toString();
         const content = model.getValue();
-        
+
         return {
           path: uri.replace(/^file:\/\/\//, ''),
           language: model.getLanguageId(),
           content,
           lines: content.split('\n').length,
-          size: content.length
+          size: content.length,
         };
       });
 
@@ -549,8 +458,8 @@ export class PlatformDetector {
         metadata: {
           editorType: 'monaco',
           modelCount: models.length,
-          totalSize: files.reduce((sum, f) => sum + f.size, 0)
-        }
+          totalSize: files.reduce((sum, f) => sum + f.size, 0),
+        },
       };
     } catch (error) {
       console.warn('Monaco context extraction failed:', error);
@@ -569,17 +478,19 @@ export class PlatformDetector {
       confidence += extractionResult.confidenceBonus;
 
       // Extract visible file content if available
-      const fileContent = document.querySelector('.blob-wrapper .blob-code-content, .markdown-body');
+      const fileContent = document.querySelector(
+        '.blob-wrapper .blob-code-content, .markdown-body'
+      );
       if (fileContent) {
         const content = fileContent.textContent || '';
         const currentFile = window.location.pathname.split('/').pop() || 'unknown';
-        
+
         files.push({
           path: currentFile,
           language: this.detectLanguageFromPath(currentFile),
           content,
           lines: content.split('\n').length,
-          size: new TextEncoder().encode(content).length
+          size: new TextEncoder().encode(content).length,
         });
         confidence += 5;
       }
@@ -592,8 +503,8 @@ export class PlatformDetector {
           hasPackageJson: GitHubDetector.hasPackageJson(),
           hasReadme: GitHubDetector.hasReadme(),
           hasTsConfig: GitHubDetector.hasTsConfig(),
-          repository: this.extractGitHubRepo()
-        }
+          repository: this.extractGitHubRepo(),
+        },
       };
     } catch (error) {
       console.warn('GitHub context extraction failed:', error);
@@ -656,7 +567,7 @@ export class PlatformDetector {
       '[role="gridcell"] a[href*="/blob/"]',
       '[data-testid="file-tree"] a',
       '.react-directory-filename-column a',
-      '[role="row"] [role="gridcell"]:first-child a'
+      '[role="row"] [role="gridcell"]:first-child a',
     ];
 
     for (const selector of selectors) {
@@ -672,7 +583,7 @@ export class PlatformDetector {
                 language: this.detectLanguageFromPath(fileName),
                 content: '', // Not available in file tree view
                 lines: 0,
-                size: 0
+                size: 0,
               });
             }
           });
@@ -696,7 +607,7 @@ export class PlatformDetector {
       '.content a[href*="/blob/"]',
       '.file-wrap .content a',
       '.repository-content a[title]',
-      '[data-pjax] .content a'
+      '[data-pjax] .content a',
     ];
 
     for (const selector of selectors) {
@@ -712,7 +623,7 @@ export class PlatformDetector {
                 language: this.detectLanguageFromPath(fileName),
                 content: '',
                 lines: 0,
-                size: 0
+                size: 0,
               });
             }
           });
@@ -736,7 +647,7 @@ export class PlatformDetector {
 
       // const owner = pathParts[1];
       // const repo = pathParts[2];
-      
+
       // Look for repository metadata in the page
       const repoMetadata = document.querySelector('[data-repository]');
       if (repoMetadata) {
@@ -753,12 +664,11 @@ export class PlatformDetector {
 
       // Fallback: Extract from repository topics/tags
       const topics = document.querySelectorAll('[data-octo-click="topic_click"] .topic-tag');
-      const topicStrings = Array.from(topics).map(t => t.textContent?.toLowerCase() || '');
-      
+      const topicStrings = Array.from(topics).map((t) => t.textContent?.toLowerCase() || '');
+
       if (topicStrings.length > 0) {
         return this.generateTypicalFilesForTopics(topicStrings);
       }
-
     } catch (error) {
       console.warn('GitHub Strategy 3 failed:', error);
     }
@@ -771,40 +681,41 @@ export class PlatformDetector {
    */
   private extractFileTreeStrategy4(): FileInfo[] {
     const files: FileInfo[] = [];
-    
+
     try {
       // Extract current file from URL if in blob view
       const pathParts = window.location.pathname.split('/');
-      const blobIndex = pathParts.findIndex(part => part === 'blob');
-      
+      const blobIndex = pathParts.indexOf('blob');
+
       if (blobIndex !== -1 && pathParts.length > blobIndex + 2) {
         const filePath = pathParts.slice(blobIndex + 2).join('/');
         const fileName = pathParts[pathParts.length - 1] || 'unknown';
-        
+
         files.push({
           path: filePath,
           language: this.detectLanguageFromPath(fileName),
           content: this.extractCurrentFileContent(),
           lines: this.countLinesInCurrentFile(),
-          size: this.estimateCurrentFileSize()
+          size: this.estimateCurrentFileSize(),
         });
       }
 
       // Look for breadcrumb files
-      const breadcrumbs = document.querySelectorAll('nav[aria-label="Breadcrumb"] a, .breadcrumb a');
+      const breadcrumbs = document.querySelectorAll(
+        'nav[aria-label="Breadcrumb"] a, .breadcrumb a'
+      );
       breadcrumbs.forEach((breadcrumb) => {
         const text = breadcrumb.textContent?.trim();
-        if (text && text.includes('.')) {
+        if (text?.includes('.')) {
           files.push({
             path: text,
             language: this.detectLanguageFromPath(text),
             content: '',
             lines: 0,
-            size: 0
+            size: 0,
           });
         }
       });
-
     } catch (error) {
       console.warn('GitHub Strategy 4 failed:', error);
     }
@@ -817,25 +728,25 @@ export class PlatformDetector {
    */
   private generateTypicalFilesForLanguage(language: string): FileInfo[] {
     const files: FileInfo[] = [];
-    
+
     const languagePatterns: Record<string, string[]> = {
-      'javascript': ['package.json', 'index.js', 'README.md', '.gitignore'],
-      'typescript': ['package.json', 'tsconfig.json', 'index.ts', 'README.md'],
-      'python': ['requirements.txt', 'main.py', 'setup.py', 'README.md'],
-      'java': ['pom.xml', 'Main.java', 'README.md', 'gradle.properties'],
-      'go': ['go.mod', 'main.go', 'README.md', 'Dockerfile'],
-      'rust': ['Cargo.toml', 'main.rs', 'README.md', 'Cargo.lock']
+      javascript: ['package.json', 'index.js', 'README.md', '.gitignore'],
+      typescript: ['package.json', 'tsconfig.json', 'index.ts', 'README.md'],
+      python: ['requirements.txt', 'main.py', 'setup.py', 'README.md'],
+      java: ['pom.xml', 'Main.java', 'README.md', 'gradle.properties'],
+      go: ['go.mod', 'main.go', 'README.md', 'Dockerfile'],
+      rust: ['Cargo.toml', 'main.rs', 'README.md', 'Cargo.lock'],
     };
 
     const typical = languagePatterns[language];
     if (typical) {
-      typical.forEach(fileName => {
+      typical.forEach((fileName) => {
         files.push({
           path: fileName,
           language: this.detectLanguageFromPath(fileName),
           content: '',
           lines: 0,
-          size: 0
+          size: 0,
         });
       });
     }
@@ -848,25 +759,23 @@ export class PlatformDetector {
    */
   private generateTypicalFilesForTopics(topics: string[]): FileInfo[] {
     const files: FileInfo[] = [];
-    
-    if (topics.some(t => ['react', 'vue', 'angular', 'frontend'].includes(t))) {
+
+    if (topics.some((t) => ['react', 'vue', 'angular', 'frontend'].includes(t))) {
       files.push(
         { path: 'package.json', language: 'JSON', content: '', lines: 0, size: 0 },
         { path: 'src/index.js', language: 'JavaScript', content: '', lines: 0, size: 0 }
       );
     }
-    
-    if (topics.some(t => ['docker', 'containerization'].includes(t))) {
+
+    if (topics.some((t) => ['docker', 'containerization'].includes(t))) {
       files.push(
         { path: 'Dockerfile', language: 'Dockerfile', content: '', lines: 0, size: 0 },
         { path: 'docker-compose.yml', language: 'YAML', content: '', lines: 0, size: 0 }
       );
     }
-    
-    if (topics.some(t => ['kubernetes', 'k8s'].includes(t))) {
-      files.push(
-        { path: 'deployment.yaml', language: 'YAML', content: '', lines: 0, size: 0 }
-      );
+
+    if (topics.some((t) => ['kubernetes', 'k8s'].includes(t))) {
+      files.push({ path: 'deployment.yaml', language: 'YAML', content: '', lines: 0, size: 0 });
     }
 
     return files;
@@ -881,7 +790,7 @@ export class PlatformDetector {
       '.markdown-body',
       '.file-editor-textarea',
       'pre.highlight',
-      '.blob-code-inner'
+      '.blob-code-inner',
     ];
 
     for (const selector of selectors) {
@@ -913,7 +822,7 @@ export class PlatformDetector {
   private async extractCodeMirrorContext(): Promise<ExtractedData> {
     try {
       const files: FileInfo[] = [];
-      
+
       // Try multiple CodeMirror detection strategies
       if (window.CodeMirror?.instances) {
         window.CodeMirror.instances.forEach((editor, index) => {
@@ -927,7 +836,7 @@ export class PlatformDetector {
               language,
               content,
               lines: content.split('\n').length,
-              size: content.length
+              size: content.length,
             });
           } catch (error) {
             console.warn(`Failed to extract from CodeMirror instance ${index}:`, error);
@@ -941,13 +850,14 @@ export class PlatformDetector {
         cmElements.forEach((element, index) => {
           try {
             const content = element.textContent || '';
-            if (content.length > 10) { // Only include substantial content
+            if (content.length > 10) {
+              // Only include substantial content
               files.push({
                 path: `codemirror_${index + 1}.txt`,
                 language: 'text',
                 content,
                 lines: content.split('\n').length,
-                size: content.length
+                size: content.length,
               });
             }
           } catch (error) {
@@ -961,8 +871,8 @@ export class PlatformDetector {
         confidence: files.length > 0 ? 85 : 40,
         metadata: {
           editorType: 'codemirror',
-          instanceCount: files.length
-        }
+          instanceCount: files.length,
+        },
       };
     } catch (error) {
       console.warn('CodeMirror context extraction failed:', error);
@@ -980,8 +890,8 @@ export class PlatformDetector {
           confidence: Math.min(95, monacoData.confidence),
           metadata: {
             ...monacoData.metadata,
-            platform: 'stackblitz'
-          }
+            platform: 'stackblitz',
+          },
         };
       }
 
@@ -1003,8 +913,8 @@ export class PlatformDetector {
           confidence: Math.min(95, monacoData.confidence),
           metadata: {
             ...monacoData.metadata,
-            platform: 'codesandbox'
-          }
+            platform: 'codesandbox',
+          },
         };
       }
 
@@ -1019,8 +929,9 @@ export class PlatformDetector {
     try {
       // Check for development server indicators
       const title = document.title.toLowerCase();
-      const hasDevServer = title.includes('webpack') || title.includes('vite') || title.includes('dev server');
-      
+      const hasDevServer =
+        title.includes('webpack') || title.includes('vite') || title.includes('dev server');
+
       return this.extractGenericContext(hasDevServer ? 60 : 40);
     } catch (error) {
       console.warn('Localhost context extraction failed:', error);
@@ -1032,31 +943,32 @@ export class PlatformDetector {
     try {
       const files: FileInfo[] = [];
       const codeBlocks = document.querySelectorAll('pre code, .highlight, .hljs');
-      
+
       codeBlocks.forEach((block, index) => {
         const content = block.textContent || '';
-        if (content.length > 20) { // Only substantial code blocks
+        if (content.length > 20) {
+          // Only substantial code blocks
           const language = this.detectLanguageFromElement(block);
-          
+
           files.push({
             path: `code_block_${index + 1}.${this.getExtensionFromLanguage(language)}`,
             language,
             content,
             lines: content.split('\n').length,
-            size: content.length
+            size: content.length,
           });
         }
       });
 
-      const confidence = Math.min(60, baseConfidence + (files.length * 5));
+      const confidence = Math.min(60, baseConfidence + files.length * 5);
 
       return {
         files,
         confidence,
         metadata: {
           codeBlockCount: files.length,
-          extractionMethod: 'generic-dom'
-        }
+          extractionMethod: 'generic-dom',
+        },
       };
     } catch (error) {
       console.warn('Generic context extraction failed:', error);
@@ -1076,28 +988,28 @@ export class PlatformDetector {
         directories: this.extractDirectories(data.files),
         entryPoints: this.detectEntryPoints(data.files),
         totalFiles: data.files.length,
-        totalLines: data.files.reduce((sum, f) => sum + f.lines, 0)
+        totalLines: data.files.reduce((sum, f) => sum + f.lines, 0),
       },
       dependencies: {
         runtime: {
           language: this.detectPrimaryLanguage(data.files),
           version: 'Unknown',
-          packageManager: 'npm'
+          packageManager: 'npm',
         },
         packages: [],
-        lockFile: null
+        lockFile: null,
       },
       environment: {
         variables: [],
-        configFiles: []
+        configFiles: [],
       },
       metadata: {
         extractionTime: performance.now(),
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         url: window.location.href,
-        userAgent: navigator.userAgent
-      }
+        userAgent: navigator.userAgent,
+      },
     };
   }
 
@@ -1110,28 +1022,28 @@ export class PlatformDetector {
         directories: [],
         entryPoints: [],
         totalFiles: 0,
-        totalLines: 0
+        totalLines: 0,
       },
       dependencies: {
         runtime: {
           language: 'Unknown',
           version: 'Unknown',
-          packageManager: 'unknown'
+          packageManager: 'unknown',
         },
         packages: [],
-        lockFile: null
+        lockFile: null,
       },
       environment: {
         variables: [],
-        configFiles: []
+        configFiles: [],
       },
       metadata: {
         extractionTime: performance.now(),
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         url: window.location.href,
-        userAgent: navigator.userAgent
-      }
+        userAgent: navigator.userAgent,
+      },
     };
   }
 
@@ -1140,8 +1052,8 @@ export class PlatformDetector {
       files: [],
       confidence: 25,
       metadata: {
-        extractionMethod: 'fallback'
-      }
+        extractionMethod: 'fallback',
+      },
     };
   }
 
@@ -1156,25 +1068,25 @@ export class PlatformDetector {
   private detectLanguageFromPath(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase();
     const langMap: Record<string, string> = {
-      'ts': 'typescript',
-      'js': 'javascript',
-      'py': 'python',
-      'java': 'java',
-      'cpp': 'cpp',
-      'c': 'c',
-      'cs': 'csharp',
-      'php': 'php',
-      'rb': 'ruby',
-      'go': 'go',
-      'rs': 'rust',
-      'html': 'html',
-      'css': 'css',
-      'scss': 'scss',
-      'json': 'json',
-      'xml': 'xml',
-      'yml': 'yaml',
-      'yaml': 'yaml',
-      'md': 'markdown'
+      ts: 'typescript',
+      js: 'javascript',
+      py: 'python',
+      java: 'java',
+      cpp: 'cpp',
+      c: 'c',
+      cs: 'csharp',
+      php: 'php',
+      rb: 'ruby',
+      go: 'go',
+      rs: 'rust',
+      html: 'html',
+      css: 'css',
+      scss: 'scss',
+      json: 'json',
+      xml: 'xml',
+      yml: 'yaml',
+      yaml: 'yaml',
+      md: 'markdown',
     };
     return langMap[ext || ''] || 'text';
   }
@@ -1210,7 +1122,7 @@ export class PlatformDetector {
       json: 'json',
       xml: 'xml',
       yaml: 'yml',
-      markdown: 'md'
+      markdown: 'md',
     };
 
     return extensions[language.toLowerCase()] || 'txt';
@@ -1221,14 +1133,16 @@ export class PlatformDetector {
    * Kept only for backward compatibility during transition.
    */
   detectPlatform(): Platform {
-    console.warn('⚠️ detectPlatform() is deprecated. Use await detect() instead to avoid race conditions.');
-    
+    console.warn(
+      '⚠️ detectPlatform() is deprecated. Use await detect() instead to avoid race conditions.'
+    );
+
     // If we have a fresh cached result, return it
     const cached = this.getCached();
     if (cached) {
       return cached;
     }
-    
+
     // Otherwise, return fast path result only (limited accuracy)
     return this.detectFastPath();
   }
@@ -1236,7 +1150,7 @@ export class PlatformDetector {
   extractContext(): CodeContext {
     // For sync compatibility, build basic context from fast path
     const platform = this.detectFastPath();
-    
+
     return {
       platform,
       score: makeScore(platform === 'unknown' ? 25 : 75),
@@ -1245,34 +1159,34 @@ export class PlatformDetector {
         directories: [],
         entryPoints: [],
         totalFiles: 0,
-        totalLines: 0
+        totalLines: 0,
       },
       dependencies: {
         runtime: {
           language: 'Unknown',
           version: 'Unknown',
-          packageManager: 'npm'
+          packageManager: 'npm',
         },
         packages: [],
-        lockFile: null
+        lockFile: null,
       },
       environment: {
         variables: [],
-        configFiles: []
+        configFiles: [],
       },
       metadata: {
         extractionTime: performance.now(),
         version: '1.0.0',
         timestamp: new Date().toISOString(),
         url: window.location.href,
-        userAgent: navigator.userAgent
-      }
+        userAgent: navigator.userAgent,
+      },
     };
   }
 
   private extractDirectories(files: readonly FileInfo[]): readonly string[] {
     const dirs = new Set<string>();
-    files.forEach(file => {
+    files.forEach((file) => {
       const pathParts = file.path.split('/');
       if (pathParts.length > 1 && pathParts[0]) {
         dirs.add(pathParts[0]);
@@ -1284,26 +1198,26 @@ export class PlatformDetector {
   private detectEntryPoints(files: readonly FileInfo[]): readonly string[] {
     const entryPoints: string[] = [];
     const entryPatterns = ['index.', 'main.', 'app.', 'server.'];
-    
-    files.forEach(file => {
+
+    files.forEach((file) => {
       const filename = file.path.split('/').pop() ?? '';
-      if (entryPatterns.some(pattern => filename.startsWith(pattern))) {
+      if (entryPatterns.some((pattern) => filename.startsWith(pattern))) {
         entryPoints.push(file.path);
       }
     });
-    
+
     return entryPoints;
   }
 
   private detectPrimaryLanguage(files: readonly FileInfo[]): string {
     if (files.length === 0) return 'Unknown';
-    
+
     const languageCounts = new Map<string, number>();
-    files.forEach(file => {
+    files.forEach((file) => {
       const count = languageCounts.get(file.language) ?? 0;
       languageCounts.set(file.language, count + 1);
     });
-    
+
     let maxCount = 0;
     let primaryLanguage = 'Unknown';
     for (const [lang, count] of languageCounts) {
@@ -1312,7 +1226,7 @@ export class PlatformDetector {
         primaryLanguage = lang;
       }
     }
-    
+
     return primaryLanguage;
   }
 }
@@ -1338,10 +1252,10 @@ export class PlatformExtractors {
           language,
           content,
           lines: content.split('\n').length,
-          size: content.length
+          size: content.length,
         };
       });
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -1359,14 +1273,14 @@ export class PlatformExtractors {
         const language = mode.name ?? 'text';
 
         return {
-          path: `file_${index + 1}.${this.getExtensionFromLanguage(language)}`,
+          path: `file_${index + 1}.${PlatformExtractors.getExtensionFromLanguage(language)}`,
           language,
           content,
           lines: content.split('\n').length,
-          size: content.length
+          size: content.length,
         };
       });
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -1383,12 +1297,12 @@ export class PlatformExtractors {
           language: 'text',
           content,
           lines: content.split('\n').length,
-          size: content.length
+          size: content.length,
         });
       });
 
       return files;
-    } catch (error) {
+    } catch (_error) {
       return [];
     }
   }
@@ -1410,7 +1324,7 @@ export class PlatformExtractors {
       json: 'json',
       xml: 'xml',
       yaml: 'yml',
-      markdown: 'md'
+      markdown: 'md',
     };
 
     return extensions[language.toLowerCase()] ?? 'txt';
@@ -1427,12 +1341,12 @@ export class GitHubDetector {
       '[role="rowheader"]:has-text("package.json")',
       '.js-navigation-open[title*="package.json"]',
       '[data-testid="file-tree"] a[title*="package.json"]',
-      'a[href$="/package.json"]'
+      'a[href$="/package.json"]',
     ];
-    return selectors.some(selector => {
+    return selectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1447,12 +1361,12 @@ export class GitHubDetector {
       'a[href*=".env.development"]',
       '[role="rowheader"]:has-text(".env")',
       '.js-navigation-open[title*=".env"]',
-      '[data-testid="file-tree"] a[title*=".env"]'
+      '[data-testid="file-tree"] a[title*=".env"]',
     ];
-    return envSelectors.some(selector => {
+    return envSelectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1469,12 +1383,12 @@ export class GitHubDetector {
       '.js-navigation-open[title*="README"]',
       '[data-testid="file-tree"] a[title*="README"]',
       'a[href$="/README.md"]',
-      'a[href$="/readme.md"]'
+      'a[href$="/readme.md"]',
     ];
-    return readmeSelectors.some(selector => {
+    return readmeSelectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1487,12 +1401,12 @@ export class GitHubDetector {
       '[role="rowheader"]:has-text("Dockerfile")',
       '.js-navigation-open[title*="Dockerfile"]',
       '[data-testid="file-tree"] a[title*="Dockerfile"]',
-      'a[href$="/Dockerfile"]'
+      'a[href$="/Dockerfile"]',
     ];
-    return selectors.some(selector => {
+    return selectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1504,12 +1418,12 @@ export class GitHubDetector {
       '[role="rowheader"]:has-text("tsconfig.json")',
       '.js-navigation-open[title*="tsconfig.json"]',
       '[data-testid="file-tree"] a[title*="tsconfig.json"]',
-      'a[href$="/tsconfig.json"]'
+      'a[href$="/tsconfig.json"]',
     ];
-    return selectors.some(selector => {
+    return selectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1530,12 +1444,12 @@ export class GitHubDetector {
       '[data-testid="file-tree"] a[title*="config"]',
       'a[href$=".config.js"]',
       'a[href$=".config.ts"]',
-      'a[href$=".config.json"]'
+      'a[href$=".config.json"]',
     ];
-    return configSelectors.some(selector => {
+    return configSelectors.some((selector) => {
       try {
         return document.querySelector(selector) !== null;
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -1560,7 +1474,7 @@ export class GitHubDetector {
           break;
         }
 
-        // Strategy 2: Legacy GitHub  
+        // Strategy 2: Legacy GitHub
         const legacyFiles = GitHubDetector.extractLegacyGitHubFiles();
         if (legacyFiles.length > 0) {
           files = legacyFiles;
@@ -1578,9 +1492,8 @@ export class GitHubDetector {
         attempts++;
         if (attempts < maxAttempts) {
           // Wait briefly before retry
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
         }
-
       } catch (error) {
         console.warn(`GitHub file detection attempt ${attempts + 1} failed:`, error);
         attempts++;
@@ -1598,7 +1511,7 @@ export class GitHubDetector {
       '[role="rowheader"] .Link--primary',
       '[role="gridcell"] a[href*="/blob/"]',
       '[data-testid="file-tree"] a',
-      '.react-directory-filename-column a'
+      '.react-directory-filename-column a',
     ];
 
     for (const selector of selectors) {
@@ -1606,7 +1519,7 @@ export class GitHubDetector {
         const elements = document.querySelectorAll(selector);
         if (elements.length > 0) {
           return Array.from(elements)
-            .map(el => el.textContent?.trim())
+            .map((el) => el.textContent?.trim())
             .filter(Boolean) as string[];
         }
       } catch (error) {
@@ -1625,7 +1538,7 @@ export class GitHubDetector {
       '.js-navigation-open',
       '.content a[href*="/blob/"]',
       '.file-wrap .content a',
-      '.repository-content a[title]'
+      '.repository-content a[title]',
     ];
 
     for (const selector of selectors) {
@@ -1633,7 +1546,7 @@ export class GitHubDetector {
         const elements = document.querySelectorAll(selector);
         if (elements.length > 0) {
           return Array.from(elements)
-            .map(el => el.textContent?.trim() || el.getAttribute('title'))
+            .map((el) => el.textContent?.trim() || el.getAttribute('title'))
             .filter(Boolean) as string[];
         }
       } catch (error) {
@@ -1652,15 +1565,15 @@ export class GitHubDetector {
       const bodyText = document.body.textContent || '';
       const filePatterns = [
         /\b[\w-]+\.(js|ts|jsx|tsx|py|java|go|rs|cpp|c|h|php|rb)\b/g,
-        /\b(package\.json|tsconfig\.json|Dockerfile|README\.md|\.gitignore)\b/g
+        /\b(package\.json|tsconfig\.json|Dockerfile|README\.md|\.gitignore)\b/g,
       ];
 
       const files = new Set<string>();
-      
-      filePatterns.forEach(pattern => {
+
+      filePatterns.forEach((pattern) => {
         const matches = bodyText.match(pattern);
         if (matches) {
-          matches.forEach(match => files.add(match));
+          matches.forEach((match) => files.add(match));
         }
       });
 
@@ -1674,12 +1587,12 @@ export class GitHubDetector {
   static getBonusFeatures(): readonly string[] {
     const features: string[] = [];
 
-    if (this.hasPackageJson()) features.push('package-json');
-    if (this.hasEnvironmentFile()) features.push('env-file');
-    if (this.hasReadme()) features.push('readme');
-    if (this.hasDockerfile()) features.push('dockerfile');
-    if (this.hasTsConfig()) features.push('typescript');
-    if (this.hasConfigFiles()) features.push('config-files');
+    if (GitHubDetector.hasPackageJson()) features.push('package-json');
+    if (GitHubDetector.hasEnvironmentFile()) features.push('env-file');
+    if (GitHubDetector.hasReadme()) features.push('readme');
+    if (GitHubDetector.hasDockerfile()) features.push('dockerfile');
+    if (GitHubDetector.hasTsConfig()) features.push('typescript');
+    if (GitHubDetector.hasConfigFiles()) features.push('config-files');
 
     return features;
   }
@@ -1697,11 +1610,11 @@ export class CodeBlockDetector {
       '.code',
       '.hljs',
       '[class*="language-"]',
-      '[class*="lang-"]'
+      '[class*="lang-"]',
     ];
 
     let totalCount = 0;
-    selectors.forEach(selector => {
+    selectors.forEach((selector) => {
       totalCount += document.querySelectorAll(selector).length;
     });
 
@@ -1712,9 +1625,9 @@ export class CodeBlockDetector {
     const languageClasses = document.querySelectorAll('[class*="language-"], [class*="lang-"]');
     const languages = new Set<string>();
 
-    languageClasses.forEach(element => {
+    languageClasses.forEach((element) => {
       const classList = Array.from(element.classList);
-      classList.forEach(className => {
+      classList.forEach((className) => {
         if (className.startsWith('language-')) {
           languages.add(className.replace('language-', ''));
         } else if (className.startsWith('lang-')) {
