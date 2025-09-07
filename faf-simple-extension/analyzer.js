@@ -1,4 +1,4 @@
-// 🏎️⚡️ FAF Extension - Wappalyzer-style Platform Analyzer
+// 🏎️⚡️ FAF Extension - Advanced Platform Detection Engine
 
 class FAFAnalyzer {
   constructor(patterns = window.FAF_PATTERNS) {
@@ -9,7 +9,7 @@ class FAFAnalyzer {
 
   // Main analysis function
   analyze() {
-    console.log('🔍 Starting Wappalyzer-style analysis...');
+    console.log('🔍 Starting comprehensive platform analysis...');
     
     const results = [];
     
@@ -146,14 +146,20 @@ class FAFAnalyzer {
           details.push(`⚡️ JavaScript detected: ${pattern}`);
         }
         
-        // Check document for pattern
+        // Check document for pattern - CONSOLIDATED VERSION
         const scripts = document.querySelectorAll('script');
+        let matchingScripts = 0;
+        
         for (const script of scripts) {
           if (script.src && script.src.toLowerCase().includes(pattern.toLowerCase())) {
-            detected = true;
-            score += 8;
-            details.push(`📜 Script source: ${pattern}`);
+            matchingScripts++;
           }
+        }
+        
+        if (matchingScripts > 0) {
+          detected = true;
+          score += Math.min(matchingScripts * 2, 20); // Cap bonus at 20 points
+          details.push(`📜 Script sources: ${pattern} (${matchingScripts} found)`);
         }
       } catch (error) {
         // Skip on error
@@ -171,6 +177,7 @@ class FAFAnalyzer {
     const details = [];
     
     const html = document.documentElement.outerHTML;
+    let matchedPatterns = [];
     
     for (const pattern of htmlPatterns) {
       try {
@@ -178,11 +185,20 @@ class FAFAnalyzer {
         if (regex.test(html)) {
           detected = true;
           score += 8;
-          details.push(`📄 HTML pattern: ${pattern}`);
+          matchedPatterns.push(pattern);
         }
       } catch (error) {
         // Invalid regex, skip
         continue;
+      }
+    }
+    
+    // Consolidate multiple pattern matches
+    if (matchedPatterns.length > 0) {
+      if (matchedPatterns.length === 1) {
+        details.push(`📄 HTML pattern: ${matchedPatterns[0]}`);
+      } else {
+        details.push(`📄 HTML patterns: ${matchedPatterns.length} matches found`);
       }
     }
     
@@ -204,6 +220,17 @@ class FAFAnalyzer {
       } catch (error) {
         // Invalid selector, skip
         continue;
+      }
+    }
+    
+    // Special detection for Node.js projects (only if not already detected)
+    if (document.querySelector('a[title="package.json"]')) {
+      const alreadyDetected = details.some(detail => 
+        detail.includes('Node.js') || detail.includes('📦')
+      );
+      if (!alreadyDetected) {
+        score += 10;
+        details.push('📦 Node.js project detected');
       }
     }
     

@@ -165,7 +165,23 @@ document.getElementById('download').addEventListener('click', function() {
   if (!window.fafData) return;
   
   const data = window.fafData;
-  const timestamp = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  
+  // Create professional filename with timestamp, platform, and score
+  const dateStr = now.toISOString().split('T')[0]; // 2025-09-06
+  const timeStr = now.toTimeString().slice(0,8).replace(/:/g, ''); // 143052
+  
+  // Clean platform name for filename
+  const platform = data.platform.toLowerCase()
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  
+  // Clean score for filename
+  const score = data.score === null ? 'no-grade' : `${data.score}pct`;
+  
+  // Professional filename: faf-report-github-repo-100pct-20250906-143052.txt
+  const filename = `faf-report-${platform}-${score}-${dateStr}-${timeStr}.txt`;
   
   // Clean and deduplicate details for professional report
   const cleanDetails = [...new Set(data.details)] // Remove exact duplicates
@@ -226,7 +242,7 @@ Made with 🧡 for developers of all skill levels
 🏎️⚡️ F1-Inspired Software Engineering
 ☕️ Dev Support: https://buymeacoffee.com/wolfejam
 
-.faf [orange-smiley] Make your AI happy!
+.faf 😊 Make your AI happy!
 =====================================================`;
 
   // Download file
@@ -235,7 +251,7 @@ Made with 🧡 for developers of all skill levels
   
   chrome.downloads.download({
     url: url,
-    filename: `faf-report-${timestamp}.txt`,
+    filename: filename,
     saveAs: false
   }, function(downloadId) {
     console.log('📥 Download started:', downloadId);

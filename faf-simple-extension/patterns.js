@@ -1,8 +1,8 @@
-// 🏎️⚡️ FAF Extension - Wappalyzer-style Detection Patterns
-// Platform fingerprints for coding environments
+// 🏎️⚡️ FAF Extension - Advanced Platform Detection Patterns
+// Generic platform fingerprints for development environments
 
 const FAF_PATTERNS = {
-  "GitHub": {
+  "Git Repository Platform": {
     "score": 85,
     "url": "github\\.com",
     "dom": {
@@ -29,7 +29,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "CodeSandbox": {
+  "Online Code Sandbox": {
     "score": 90,
     "url": "codesandbox\\.io",
     "dom": {
@@ -46,7 +46,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "StackBlitz": {
+  "Web Development Environment": {
     "score": 88,
     "url": "stackblitz\\.com",
     "dom": {
@@ -63,7 +63,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "Monaco Editor": {
+  "Advanced Code Editor": {
     "score": 95,
     "url": "",
     "dom": {
@@ -80,7 +80,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "Repl.it": {
+  "Online IDE Platform": {
     "score": 85,
     "url": "replit\\.com",
     "dom": {
@@ -93,7 +93,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "Glitch": {
+  "Collaborative Coding Platform": {
     "score": 80,
     "url": "glitch\\.com",
     "dom": {
@@ -106,7 +106,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "CodePen": {
+  "Frontend Playground": {
     "score": 75,
     "url": "codepen\\.io",
     "dom": {
@@ -121,7 +121,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "JSFiddle": {
+  "Code Testing Platform": {
     "score": 72,
     "url": "jsfiddle\\.net",
     "dom": {
@@ -134,7 +134,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "Observable": {
+  "Data Science Notebook": {
     "score": 78,
     "url": "observablehq\\.com",
     "dom": {
@@ -147,7 +147,7 @@ const FAF_PATTERNS = {
     }
   },
 
-  "VS Code Online": {
+  "Browser-Based IDE": {
     "score": 92,
     "url": "vscode\\.dev|github\\.dev",
     "dom": {
@@ -156,7 +156,7 @@ const FAF_PATTERNS = {
     },
     "bonuses": {
       ".file-tree": { "score": 20, "message": "📁 Full file explorer" },
-      ".monaco-editor": { "score": 15, "message": "⚡️ Full VS Code experience" }
+      ".monaco-editor": { "score": 15, "message": "⚡️ Full IDE experience" }
     }
   },
 
