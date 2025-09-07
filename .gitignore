@@ -6,3 +6,15 @@ dist/
 .env.local
 coverage/
 build/
+
+# Build artifacts
+*.zip
+*.crx
+*.pem
+
+# Extension builds
+faf-chrome-extension/
+faf-chrome-extension-clean/
+faf-simple-extension/
+faf-one-site/
+dist 2/
