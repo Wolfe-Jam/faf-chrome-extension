@@ -93,3 +93,6 @@ export class ScoreCalculator {
     return 'LOW';
   }
 }
+
+// Export ScoringEngine as alias for ScoreCalculator for backwards compatibility
+export const ScoringEngine = ScoreCalculator;

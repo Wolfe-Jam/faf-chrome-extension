@@ -60,14 +60,14 @@ project:
   name: "${projectName}"
   description: "AI Context extracted by FAF Chrome Extension"
   goal: "Perfect context for AI assistance"
-  source_url: "${fafData.metadata?.url || 'Unknown'}"
+  source_url: "${fafData.context.metadata?.url || 'Unknown'}"
   extraction_date: "${timestamp}"
-  faf_version: "${fafData.metadata?.version || '1.0.1'}"
+  faf_version: "${fafData.context.metadata?.version || '1.0.1'}"
   intelligence_score: "${score}%"
 
 # 🎯 REAL ANALYSIS RESULTS (Not Fake Scores!)
 context:
-  platform: "${fafData.metadata?.platform || 'unknown'}"
+  platform: "${fafData.context.platform || 'unknown'}"
   total_files: ${fafData.context.structure.files?.length || 0}
   file_types: ${DownloadsManager.getUniqueLanguages(fafData.context.structure.files || [])}
   extraction_time: "${fafData.context.metadata?.extractionTime || 0}ms"
@@ -134,18 +134,18 @@ metadata:
    */
   private static extractProjectName(fafData: FAFFile): string {
     // Try to get project name from URL
-    if (fafData.metadata?.url) {
-      const url = new URL(fafData.metadata.url);
+    if (fafData.context.metadata?.url) {
+      const url = new URL(fafData.context.metadata.url);
       if (url.hostname.includes('github.com')) {
         const pathParts = url.pathname.split('/').filter(Boolean);
         if (pathParts.length >= 2) {
-          return pathParts[1]; // repo name
+          return pathParts[1] || 'unknown_project'; // repo name
         }
       }
     }
 
     // Fallback to platform
-    return `${fafData.metadata?.platform || 'unknown'}_project`;
+    return `${fafData.context.platform || 'unknown'}_project`;
   }
 
   /**

@@ -97,15 +97,15 @@ export interface FAFErrorInfo {
   readonly severity: FAFErrorSeverity;
   readonly message: string;
   readonly userMessage: string;
-  readonly technicalDetails?: string;
+  readonly technicalDetails?: string | undefined;
   readonly recoveryStrategy: FAFRecoveryStrategy;
   readonly recoveryActions: readonly string[];
   readonly context?: {
-    readonly platform?: Platform;
-    readonly url?: string;
-    readonly userAgent?: string;
+    readonly platform?: Platform | undefined;
+    readonly url?: string | undefined;
+    readonly userAgent?: string | undefined;
     readonly timestamp: number;
-    readonly sessionId?: string;
+    readonly sessionId?: string | undefined;
   };
 }
 
@@ -116,7 +116,7 @@ export class FAFError extends Error {
   readonly code: FAFErrorCode;
   readonly severity: FAFErrorSeverity;
   readonly userMessage: string;
-  readonly technicalDetails?: string;
+  readonly technicalDetails?: string | undefined;
   readonly recoveryStrategy: FAFRecoveryStrategy;
   readonly recoveryActions: readonly string[];
   readonly context: FAFErrorInfo['context'];
@@ -126,10 +126,10 @@ export class FAFError extends Error {
     code: FAFErrorCode,
     message: string,
     options: {
-      readonly cause?: Error;
-      readonly userMessage?: string;
-      readonly technicalDetails?: string;
-      readonly context?: Partial<FAFErrorInfo['context']>;
+      readonly cause?: Error | undefined;
+      readonly userMessage?: string | undefined;
+      readonly technicalDetails?: string | undefined;
+      readonly context?: Partial<FAFErrorInfo['context']> | undefined;
     } = {}
   ) {
     super(message, { cause: options.cause });

@@ -77,7 +77,7 @@ export class PlatformDetector {
 
     // 2. If cache is fresh, return immediately (fast path)
     if (this.isCacheFresh()) {
-      return Promise.resolve(this.cachedResult?.platform);
+      return Promise.resolve(this.cachedResult?.platform || 'unknown');
     }
 
     // 3. Start new detection with lock to prevent concurrent calls
@@ -106,7 +106,7 @@ export class PlatformDetector {
    * Get cached platform without triggering detection
    */
   getCached(): Platform | null {
-    return this.isCacheFresh() ? this.cachedResult?.platform : null;
+    return this.isCacheFresh() ? (this.cachedResult?.platform || null) : null;
   }
 
   private isCacheFresh(): boolean {

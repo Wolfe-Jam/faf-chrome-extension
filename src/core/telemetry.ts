@@ -8,7 +8,7 @@ interface TelemetryConfig {
   enablePerformanceTracking: boolean;
   enableUserAnalytics: boolean;
   sampleRate: number;
-  endpoint?: string;
+  endpoint?: string | undefined;
 }
 
 interface PerformanceMetric {
@@ -25,7 +25,7 @@ interface ErrorReport {
     url?: string;
     userAgent: string;
     timestamp: number;
-    userId?: string;
+    userId?: string | undefined;
     sessionId: string;
     extensionVersion: string;
     action?: string;
@@ -39,7 +39,7 @@ interface UserEvent {
   properties: Record<string, any>;
   timestamp: number;
   sessionId: string;
-  userId?: string;
+  userId?: string | undefined;
 }
 
 class ProductionTelemetry {
@@ -211,7 +211,7 @@ class ProductionTelemetry {
     // Store locally for offline capability
     try {
       const stored = await chrome.storage.local.get('telemetry_metrics');
-      const metrics = stored.telemetry_metrics || [];
+      const metrics = stored['telemetry_metrics'] || [];
       metrics.push(metric);
 
       // Keep only last 100 metrics
@@ -249,7 +249,7 @@ class ProductionTelemetry {
     // Store locally first
     try {
       const stored = await chrome.storage.local.get('telemetry_errors');
-      const errors = stored.telemetry_errors || [];
+      const errors = stored['telemetry_errors'] || [];
       errors.push(report);
 
       // Keep only last 50 errors
@@ -284,7 +284,7 @@ class ProductionTelemetry {
     // Store locally
     try {
       const stored = await chrome.storage.local.get('telemetry_events');
-      const events = stored.telemetry_events || [];
+      const events = stored['telemetry_events'] || [];
       events.push(userEvent);
 
       // Keep only last 200 events
@@ -439,9 +439,9 @@ class ProductionTelemetry {
 // Initialize telemetry based on environment
 const createTelemetry = (): ProductionTelemetry => {
   // Use fallback values since process.env doesn't exist in Chrome extension service workers
-  const nodeEnv = (typeof process !== 'undefined' && process.env?.NODE_ENV) || 'production';
+  const nodeEnv = (typeof process !== 'undefined' && process.env?.['NODE_ENV']) || 'production';
   const telemetryEndpoint =
-    (typeof process !== 'undefined' && process.env?.TELEMETRY_ENDPOINT) || undefined;
+    (typeof process !== 'undefined' && process.env?.['TELEMETRY_ENDPOINT']) || undefined;
 
   const isDevelopment = nodeEnv === 'development';
   const isProduction = nodeEnv === 'production';

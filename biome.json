@@ -1,6 +1,5 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.3/schema.json",
-  "assist": { "actions": { "source": { "organizeImports": "on" } } },
   "linter": {
     "enabled": true,
     "rules": {
@@ -30,8 +29,7 @@
         "useIsNan": "error",
         "useValidForDirection": "error",
         "useYield": "error",
-        "noInvalidBuiltinInstantiation": "error",
-        "useValidTypeof": "error"
+        "noInvalidBuiltinInstantiation": "error"
       },
       "suspicious": {
         "noArrayIndexKey": "error",
@@ -109,19 +107,21 @@
     }
   },
   "files": {
-    "includes": [
+    "include": [
       "**/src/**/*",
       "**/*.ts",
       "**/*.tsx",
       "**/*.js",
       "**/*.jsx",
-      "**/*.json",
-      "!**/dist/**",
-      "!**/node_modules/**",
-      "!**/build/**",
-      "!**/coverage/**",
-      "!**/*.min.js",
-      "!**/*.d.ts"
+      "**/*.json"
+    ],
+    "ignore": [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/build/**",
+      "**/coverage/**",
+      "**/*.min.js",
+      "**/*.d.ts"
     ]
   }
 }

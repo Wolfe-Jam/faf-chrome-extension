@@ -42,17 +42,20 @@ export class BrowserFafEngine {
     const stack = this.inferStack(context);
 
     // Enhanced project analysis
-    const _hasGoodStructure =
+    const hasGoodStructure =
       context.structure.totalFiles > 5 && context.structure.directories.length > 2;
     const hasDependencies = context.dependencies.packages.length > 0;
-    const _hasMultipleLanguages = this.getLanguageCount(context) > 1;
+    const hasMultipleLanguages = this.getLanguageCount(context) > 1;
 
     // Sophisticated goal based on project characteristics
     let goal = `${context.platform} project`;
     if (context.platform === 'monaco') {
       goal = 'Advanced code editor with TypeScript/JavaScript support';
     } else if (context.platform === 'github') {
-      if (hasDependencies) {
+      if (hasDependencies && hasGoodStructure) {
+        const langSuffix = hasMultipleLanguages ? 'multi-language' : mainLanguage;
+        goal = `${langSuffix} project with ${context.dependencies.packages.length} dependencies`;
+      } else if (hasDependencies) {
         goal = `${mainLanguage} project with ${context.dependencies.packages.length} dependencies`;
       } else {
         goal = `${mainLanguage} development project`;
@@ -72,7 +75,7 @@ export class BrowserFafEngine {
         what: this.inferUserIntent(context),
         why: this.inferProjectPurpose(context),
         where: this.enhanceLocationContext(context),
-        when: new Date().toISOString().split('T')[0],
+        when: new Date().toISOString().split('T')[0] as string,
         how: this.inferWorkflowContext(context),
       },
     };
@@ -109,26 +112,26 @@ export class BrowserFafEngine {
 
     const mostCommon = Object.entries(languageCount).sort(([, a], [, b]) => b - a)[0];
 
-    return mostCommon[0];
+    return mostCommon?.[0] || 'JavaScript';
   }
 
   /**
    * Infer stack information from context
    */
   private inferStack(context: CodeContext): FafData['stack'] {
-    const stack: FafData['stack'] = {
-      frontend: 'None',
-      css_framework: 'None',
-      ui_library: 'None',
-      state_management: 'None',
-      backend: 'None',
-      runtime: 'None',
-      database: 'None',
-      build: 'None',
-      package_manager: 'npm',
-      api_type: 'REST',
-      hosting: 'None',
-      cicd: 'None',
+    const stack = {
+      frontend: 'None' as string,
+      css_framework: 'None' as string,
+      ui_library: 'None' as string,
+      state_management: 'None' as string,
+      backend: 'None' as string,
+      runtime: 'None' as string,
+      database: 'None' as string,
+      build: 'None' as string,
+      package_manager: 'npm' as string,
+      api_type: 'REST' as string,
+      hosting: 'None' as string,
+      cicd: 'None' as string,
     };
 
     // Analyze dependencies for stack detection
@@ -184,7 +187,7 @@ export class BrowserFafEngine {
       stack.hosting = 'CodeSandbox';
     }
 
-    return stack;
+    return stack as FafData['stack'];
   }
 
   /**

@@ -3,6 +3,8 @@
  * Zero any types, complete type coverage
  */
 
+import type { FAFErrorCode } from '@/core/errors';
+
 export const PLATFORMS = [
   'github',
   'gitlab',
@@ -140,11 +142,7 @@ export type ExtractionResult =
   | {
       readonly success: false;
       readonly error: string;
-      readonly code:
-        | 'PLATFORM_NOT_SUPPORTED'
-        | 'EXTRACTION_TIMEOUT'
-        | 'DOM_ACCESS_ERROR'
-        | 'UNKNOWN_ERROR';
+      readonly code: FAFErrorCode;
     };
 
 export const MESSAGE_TYPES = [
@@ -193,12 +191,22 @@ export interface ErrorMessage extends BaseMessage {
   };
 }
 
+export interface PingMessage extends BaseMessage {
+  readonly type: 'PING';
+}
+
+export interface PongMessage extends BaseMessage {
+  readonly type: 'PONG';
+}
+
 export type Message =
   | ExtractContextMessage
   | ContextExtractedMessage
   | CopyToClipboardMessage
   | UpdateBadgeMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | PingMessage
+  | PongMessage;
 
 export function isValidPlatform(value: string): value is Platform {
   return PLATFORMS.includes(value as Platform);
@@ -224,32 +232,32 @@ export function getBadgeColors(score: Score): BadgeColorConfig {
 
 export interface FafData {
   readonly project?: {
-    readonly name?: string;
-    readonly goal?: string;
-    readonly main_language?: string;
-  };
+    readonly name?: string | undefined;
+    readonly goal?: string | undefined;
+    readonly main_language?: string | undefined;
+  } | undefined;
   readonly stack?: {
-    readonly frontend?: string;
-    readonly css_framework?: string;
-    readonly ui_library?: string;
-    readonly state_management?: string;
-    readonly backend?: string;
-    readonly runtime?: string;
-    readonly database?: string;
-    readonly build?: string;
-    readonly package_manager?: string;
-    readonly api_type?: string;
-    readonly hosting?: string;
-    readonly cicd?: string;
-  };
+    readonly frontend?: string | undefined;
+    readonly css_framework?: string | undefined;
+    readonly ui_library?: string | undefined;
+    readonly state_management?: string | undefined;
+    readonly backend?: string | undefined;
+    readonly runtime?: string | undefined;
+    readonly database?: string | undefined;
+    readonly build?: string | undefined;
+    readonly package_manager?: string | undefined;
+    readonly api_type?: string | undefined;
+    readonly hosting?: string | undefined;
+    readonly cicd?: string | undefined;
+  } | undefined;
   readonly human_context?: {
-    readonly who?: string;
-    readonly what?: string;
-    readonly why?: string;
-    readonly where?: string;
-    readonly when?: string;
-    readonly how?: string;
-  };
+    readonly who?: string | undefined;
+    readonly what?: string | undefined;
+    readonly why?: string | undefined;
+    readonly where?: string | undefined;
+    readonly when?: string | undefined;
+    readonly how?: string | undefined;
+  } | undefined;
   readonly ai_score?: number | string;
   readonly ai_scoring_system?: string;
   readonly ai_scoring_details?: {

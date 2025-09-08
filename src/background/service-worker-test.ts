@@ -357,16 +357,16 @@ export class ServiceWorkerTestSuite {
     const msg = message as Record<string, unknown>;
 
     return (
-      typeof msg.type === 'string' &&
-      typeof msg.timestamp === 'number' &&
-      typeof msg.source === 'string' &&
-      ['popup', 'content', 'background', 'service-worker'].includes(msg.source as string)
+      typeof msg['type'] === 'string' &&
+      typeof msg['timestamp'] === 'number' &&
+      typeof msg['source'] === 'string' &&
+      ['popup', 'content', 'background', 'service-worker'].includes(msg['source'] as string)
     );
   }
 }
 
 // Auto-run tests in development
-if (process.env.NODE_ENV === 'development') {
+if (process.env['NODE_ENV'] === 'development') {
   const testSuite = new ServiceWorkerTestSuite();
   testSuite.runAllTests().then((results) => {
     if (results.failed > 0) {

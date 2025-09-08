@@ -72,7 +72,7 @@ class ServiceWorkerState {
     this.activeExtractions.set(tabId, {
       tabId,
       startTime: Date.now(),
-      timeout: timeoutId as number,
+      timeout: timeoutId as unknown as number,
     });
   }
 
@@ -165,7 +165,7 @@ class ServiceWorkerState {
 
     this.cleanupTimer = setInterval(() => {
       this.performCleanup();
-    }, this.CLEANUP_INTERVAL_MS) as number;
+    }, this.CLEANUP_INTERVAL_MS) as unknown as number;
 
     // Initial cleanup
     this.performCleanup();
@@ -361,7 +361,7 @@ class ServiceWorkerManager {
                   FAFErrorCode.SERVICE_WORKER_MESSAGE_FAILED,
                   'Service worker message handling failed',
                   {
-                    context: { messageType: message.type, timestamp: Date.now() },
+                    context: { timestamp: Date.now() },
                   }
                 );
 
@@ -712,10 +712,10 @@ class ServiceWorkerManager {
     const msg = message as Record<string, unknown>;
 
     return (
-      typeof msg.type === 'string' &&
-      typeof msg.timestamp === 'number' &&
-      typeof msg.source === 'string' &&
-      ['popup', 'content', 'background', 'service-worker'].includes(msg.source as string)
+      typeof msg['type'] === 'string' &&
+      typeof msg['timestamp'] === 'number' &&
+      typeof msg['source'] === 'string' &&
+      ['popup', 'content', 'background', 'service-worker'].includes(msg['source'] as string)
     );
   }
 

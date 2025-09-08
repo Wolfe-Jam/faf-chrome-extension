@@ -4,7 +4,7 @@
  */
 
 import { FafEngine, WebAdapter } from '@faf/engine';
-import type { ScoringEngine } from '@/core/scorer';
+import { ScoringEngine } from '@/core/scorer';
 import type { CodeContext, Score } from '@/core/types';
 
 interface ExtractedFile {

@@ -18,11 +18,11 @@ export const hasExtractionStore = derived(
 );
 
 export const extractionScoreStore = derived(extractionStore, ($extraction) =>
-  $extraction?.success ? $extraction.faf.score.total : 0
+  $extraction?.success ? $extraction.faf.score : 0
 );
 
 export const fileCountStore = derived(extractionStore, ($extraction) =>
-  $extraction?.success ? $extraction.faf.files.length : 0
+  $extraction?.success ? $extraction.faf.context.structure.files.length : 0
 );
 
 // Session state
@@ -101,7 +101,7 @@ export const performanceStore = readable(
     // Track popup load time
     const updateLoadTime = () => {
       const loadTime = performance.now() - startTime;
-      set((prev) => ({ ...prev, popupLoadTime: loadTime }));
+      set((prev: { popupLoadTime: number; lastExtractionTime: number; averageExtractionTime: number }) => ({ ...prev, popupLoadTime: loadTime }));
     };
 
     // Update when DOM is ready
