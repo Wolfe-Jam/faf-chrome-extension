@@ -4,6 +4,7 @@
 
 import { ChromeRuntime } from '@/adapters/chrome';
 import { FAFEngine } from '@/core/engine';
+import { PlatformDetector } from '@/adapters/platforms';
 import type { ExtractContextMessage, Message, MessageType } from '@/core/types';
 import { MESSAGE_TYPES } from '@/core/types';
 
@@ -263,7 +264,7 @@ class ContentScriptManager {
     try {
       // This is optional and should not break if it fails
       // Use cached platform if available, otherwise 'unknown' for immediate response
-      const detector = new (await import('@/adapters/platforms')).PlatformDetector();
+      const detector = new PlatformDetector();
       const platform = detector.getCached() || 'unknown';
 
       if (platform === 'github') {
