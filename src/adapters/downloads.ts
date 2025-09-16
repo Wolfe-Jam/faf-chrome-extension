@@ -14,7 +14,7 @@ export class DownloadsManager {
 
     try {
       // Create blob URL
-      const blob = new Blob([brandedContent], { type: 'text/yaml' });
+      const blob = new Blob([brandedContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
 
       // Trigger download via Chrome Downloads API
@@ -126,7 +126,7 @@ metadata:
     const timestamp = new Date().toISOString().split('T')[0];
     const score = fafData.score || 0;
 
-    return `${projectName}_${timestamp}_${score}percent.faf`;
+    return `${projectName}_${timestamp}_${score}percent.txt`;
   }
 
   /**
