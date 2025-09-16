@@ -200,7 +200,7 @@ document.getElementById('download').addEventListener('click', function() {
   // Generate professional report content
   const report = `=====================================================
 .faf AI-CONTEXT Analysis Report ⚡️
-Generated: ${timestamp} ⌚️ https://www.faf.one
+Generated: ${now.toLocaleString()} ⌚️ https://www.faf.one
 =====================================================
 
 PROJECT: ${data.platform} Analysis
@@ -234,7 +234,7 @@ environments, and AI-context rich content.
 • Documentation: https://www.faf.one/docs`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Version 1.0.1
+Version 1.0.3
 🤖 AI-Context for AI by AI (and that 🇬🇧Guy)
 Made with 🧡 for developers of all skill levels
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -249,13 +249,20 @@ Made with 🧡 for developers of all skill levels
   const blob = new Blob([report], {type: 'text/plain'});
   const url = URL.createObjectURL(blob);
   
+  // Use chrome.downloads API to save the file
   chrome.downloads.download({
     url: url,
     filename: filename,
-    saveAs: false
+    saveAs: false // Auto-save to Downloads folder
   }, function(downloadId) {
-    console.log('📥 Download started:', downloadId);
-    URL.revokeObjectURL(url);
+    if (chrome.runtime.lastError) {
+      console.error('❌ Download failed:', chrome.runtime.lastError);
+      alert('Download failed. Please check your browser settings.');
+    } else {
+      console.log('📥 Download started:', downloadId);
+    }
+    // Clean up blob URL after download
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 });
 
