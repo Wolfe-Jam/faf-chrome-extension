@@ -1,6 +1,6 @@
 {
   "name": "faf-chrome-extension",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "FAF - Fast AF Context extraction for Chrome",
   "type": "module",
   "private": true,
