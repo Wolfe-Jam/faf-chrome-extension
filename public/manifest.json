@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "FAF - Fast AF ⚡️ AI-Context",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Instantly extract structured context from any webpage for AI assistants like ChatGPT and Claude",
   
   "icons": {
@@ -36,7 +36,8 @@
   "permissions": [
     "activeTab",
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "downloads"
   ],
   
   "host_permissions": [

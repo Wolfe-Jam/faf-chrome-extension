@@ -1,14 +1,13 @@
-<script lang="ts">
+<script>
 import { onMount } from 'svelte';
 import { ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
 import { DownloadsManager } from '@/adapters/downloads';
 import { telemetry } from '@/core/telemetry';
-import type { ExtractionResult } from '@/core/types';
 
 // State
-let lastExtraction: ExtractionResult | null = null;
+let lastExtraction = null;
 let isExtracting = false;
-let error: string | null = null;
+let error = null;
 
 // Load stored extraction on mount
 onMount(async () => {
@@ -36,7 +35,7 @@ onMount(async () => {
 });
 
 // Handle extraction
-async function _handleExtract() {
+async function handleExtract() {
   if (isExtracting) return;
 
   isExtracting = true;
@@ -49,7 +48,7 @@ async function _handleExtract() {
       timestamp: Date.now(),
     });
 
-    const activeTab = await ChromeTabs.getActiveTab();
+    const activeTab = await ChromeTabs.getActive();
     if (!activeTab?.id) {
       throw new Error('No active tab found');
     }
@@ -73,7 +72,7 @@ async function _handleExtract() {
       await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (injectErr) {
       // Injection might fail if script is already injected, that's okay
-      console.log('Content script injection attempted:', injectErr.message);
+      console.log('Content script injection attempted:', injectErr);
     }
 
     // Now try to send the message
@@ -101,9 +100,9 @@ async function _handleExtract() {
 
       // Track success
       telemetry.track('extraction_complete', {
-        platform: response.faf?.metadata?.platform || 'unknown',
+        platform: response.faf?.context?.platform || 'unknown',
         score: response.faf?.score || 0,
-        fileCount: response.faf?.files?.length || 0,
+        fileCount: response.faf?.context?.structure?.files?.length || 0,
         duration: Date.now() - performance.now(),
       });
     } else {
@@ -124,7 +123,7 @@ async function _handleExtract() {
 }
 
 // Copy to clipboard
-async function _handleCopy() {
+async function handleCopy() {
   if (!lastExtraction?.success) return;
 
   try {
@@ -152,7 +151,7 @@ async function _handleCopy() {
 }
 
 // Handle download action
-async function _handleDownload() {
+async function handleDownload() {
   if (!lastExtraction?.faf) return;
 
   try {
@@ -161,7 +160,7 @@ async function _handleDownload() {
     // Track download action
     telemetry.track('user_action', {
       action: 'download_faf_file',
-      platform: lastExtraction.faf.metadata?.platform,
+      platform: lastExtraction.faf.context?.platform,
       score: lastExtraction.faf.score,
     });
 
@@ -180,14 +179,14 @@ async function _handleDownload() {
 }
 
 // Format file size
-function _formatSize(bytes: number): string {
+function formatSize(bytes) {
   if (bytes < 1024) return `${bytes}B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 // Get score color
-function _getScoreColor(score: number): string {
+function getScoreColor(score) {
   if (score >= 90) return '#10b981'; // green-500
   if (score >= 70) return '#3b82f6'; // blue-500
   if (score >= 50) return '#f59e0b'; // amber-500
@@ -215,31 +214,31 @@ function _getScoreColor(score: number): string {
     {#if lastExtraction?.success}
       <div class="extraction-result">
         <div class="score-section">
-          <div class="score-badge" style="background: {getScoreColor(lastExtraction.faf.score.total)}">
-            {lastExtraction.faf.score.total}%
+          <div class="score-badge" style="background: {getScoreColor(lastExtraction.faf.score)}">
+            {lastExtraction.faf.score}%
           </div>
           <div class="score-details">
             <div class="platform">
               <span class="label">Platform:</span>
-              <span class="value">{lastExtraction.faf.metadata.platform}</span>
+              <span class="value">{lastExtraction.faf.context.platform}</span>
             </div>
             <div class="files">
               <span class="label">Files:</span>
-              <span class="value">{lastExtraction.faf.files.length}</span>
+              <span class="value">{lastExtraction.faf.context.structure.files.length}</span>
             </div>
           </div>
         </div>
 
         <div class="file-list">
-          {#each lastExtraction.faf.files.slice(0, 5) as file}
+          {#each lastExtraction.faf.context.structure.files.slice(0, 5) as file}
             <div class="file-item">
               <span class="file-name">{file.path}</span>
-              <span class="file-size">{formatSize(file.content.length)}</span>
+              <span class="file-size">{formatSize(file.size || 0)}</span>
             </div>
           {/each}
-          {#if lastExtraction.faf.files.length > 5}
+          {#if lastExtraction.faf.context.structure.files.length > 5}
             <div class="more-files">
-              +{lastExtraction.faf.files.length - 5} more files
+              +{lastExtraction.faf.context.structure.files.length - 5} more files
             </div>
           {/if}
         </div>
@@ -278,7 +277,7 @@ function _getScoreColor(score: number): string {
 
   <footer>
     <a href="https://github.com/Wolfe-Jam/faf-chrome-extension" target="_blank">
-      v1.0.0
+      v1.0.2
     </a>
     <span class="separator">•</span>
     <span class="tagline-footer">Fast AI Context</span>

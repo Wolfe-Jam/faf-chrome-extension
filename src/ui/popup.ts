@@ -2,7 +2,7 @@
  * Popup entry point - Mounts optimized Svelte component with stores
  */
 
-import Popup from './popup-simple.svelte';
+import Popup from './popup.svelte';
 
 // Mount the Svelte app to the popup container
 const appElement = document.getElementById('app');
