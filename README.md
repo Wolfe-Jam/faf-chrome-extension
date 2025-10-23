@@ -1,51 +1,66 @@
-# 🚀 FAF - Fast AF AI Context Extraction
+# 🚀 FAF Chrome Extension - Fast AF Context Extraction
 
-> **Extract perfect AI context in 0.3 seconds. Stop FAFfing About.**
+> **Grab any codebase as .txt in one click. GitHub, Monaco, StackBlitz, GitLab—every dev's dream when you need it.**
 
-FAF is a lightning-fast Chrome extension and emerging open standard for AI context extraction. It intelligently analyzes codebases, documentation, and development environments to generate structured `.faf` files that provide AI assistants with the perfect context for your project.
+Google-approved Chrome extension that extracts code context from ANY development environment. Monaco editor? React sandbox? GitHub repo? One click → perfect .txt context → ready for Claude, Cursor, or any AI.
 
-[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/Wolfe-Jam/faf-production)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Chrome Extension](https://img.shields.io/badge/chrome-extension-orange.svg)](https://chrome.google.com/webstore)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/lnecebepmpjpilldfmndnaofbfjkjlkm)](https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Google Approved](https://img.shields.io/badge/Google-Approved-success)](https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm)
+[![Downloads](https://img.shields.io/chrome-web-store/users/lnecebepmpjpilldfmndnaofbfjkjlkm)](https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm)
 
-## ✨ What is FAF?
+## 🎯 Why This Exists
 
-FAF (**F**ast **A**F) solves the universal problem every developer faces: **providing AI assistants with the right context**. Instead of manually copying and pasting code snippets, file structures, and project details, FAF:
+**The Problem:** You're testing something in StackBlitz, you need to ask Claude about it, but copying code manually is a pain.
 
-- 🔍 **Intelligently analyzes** your codebase across 15+ platforms (GitHub, Monaco, CodeMirror, etc.)
-- 📊 **Scores context quality** from 0-100% based on completeness and relevance  
-- 📋 **Copies structured context** directly to your clipboard in seconds
-- 🎯 **Works everywhere** - any website, any development environment
-- ⚡ **Blazing fast** - Full extraction in under 300ms
+**The Solution:** One click. Entire codebase → clipboard as clean .txt. Works on GitHub, Monaco editor, React playgrounds, GitLab, anywhere.
 
-## 🎯 Quick Start
+**My Story:** Built it for myself while testing. Needed it. Google approved it. Success. Nine downloads. Zero reviews. But it's **top-notch** as you'd expect—when you need it, you NEED it.
 
-### 1. Install the Chrome Extension
+**The Format:** The .txt output is a **pre-cursor to .faf**—any FAF tool gobbles it up like an appetizer. It's the universal handoff format for AI context.
 
+## ✨ What It Does
+
+- 🔍 **Works on 15+ platforms** - GitHub, Monaco, CodeMirror, StackBlitz, GitLab, Replit
+- 📋 **One-click extraction** - Entire codebase → clipboard in <300ms
+- 🎯 **Clean .txt format** - Human-readable, AI-ready, .faf-compatible
+- ⚡ **Zero config** - Install, click icon, done
+- 🛡️ **Google Approved** - Passed security review, live in Chrome Web Store
+
+## 🚀 Quick Start
+
+### 1. Install from Chrome Web Store
+
+**[→ Install FAF Extension](https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm)**
+
+Or build from source:
 ```bash
-# Clone and build locally (Chrome Web Store submission pending)
-git clone https://github.com/Wolfe-Jam/faf-production.git
-cd faf-production
-npm install
-npm run build
+git clone https://github.com/Wolfe-Jam/faf-chrome-extension.git
+cd faf-chrome-extension
+npm install && npm run build
 ```
 
-Then load `dist/` as an unpacked extension in Chrome.
+### 2. Use It
 
-### 2. Extract Context Instantly
+1. Open any GitHub repo, Monaco editor, StackBlitz, etc.
+2. Click FAF extension icon 🚀
+3. Click "Extract Context"
+4. Context copied to clipboard as clean .txt
+5. Paste into Claude, Cursor, or any AI
 
-1. **Navigate** to any GitHub repo, CodeSandbox, or development site
-2. **Click** the FAF extension icon ⚡
-3. **Hit** "Extract AI Context" 
-4. **Paste** the perfect context into ChatGPT, Claude, or any AI assistant
+### 3. Real Example
 
-### 3. Get Better AI Responses
-
+**Without FAF:**
 ```
-🤖 Instead of: "Help me with my React app"
-✅ With FAF: [Pastes comprehensive .faf context with file structure, dependencies, platform details]
+You: "Help with this React component"
+AI: "Which component? Show me the code"
+You: [manually copies files one by one]
+```
 
-Result: AI instantly understands your project structure, tech stack, and current context.
+**With FAF:**
+```
+You: [pastes FAF .txt] "Help with this React component"
+AI: "I see you're using React 18 with Vite, here's what I'd change in Button.tsx..."
 ```
 
 ## 📋 Supported Platforms
