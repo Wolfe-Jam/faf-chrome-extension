@@ -163,13 +163,12 @@ ${data.details.join('\n')}
 ⌚️ Analysis Time: < 300ms
 🏁 Status: Complete
 
-🚀 IMPROVE YOUR SCORE:
-• Online analyzer: https://www.faf.one/analyze
-• CLI tool: https://www.faf.one/cli  
-• Documentation: https://www.faf.one/docs
+🚀 LEARN MORE:
+• Website: https://faf.one
+• Chrome Extension: https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm
 
-Generated with FAF Context Analyzer
-https://www.faf.one - Professional AI Context Extraction
+Generated with Context Extraction ⚡️.FAF
+https://faf.one - Context Extraction Fast AF
 =====================================================`;
 
   // Download file

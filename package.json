@@ -1,7 +1,7 @@
 {
   "name": "faf-chrome-extension",
-  "version": "1.0.3",
-  "description": "FAF - Friday Features! Chrome Extensions get 90%+ scores automatically",
+  "version": "1.5.1",
+  "description": "Stack grabber Chrome extension for developers. Generates .faf.txt reports from GitHub, GitLab, StackBlitz, and code editors.",
   "type": "module",
   "private": true,
   "scripts": {

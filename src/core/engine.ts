@@ -61,6 +61,9 @@ export class FAFEngine {
    * Extract complete context from current page
    */
   async extract(): Promise<ExtractionResult> {
+    // Reset start time for accurate extraction timing
+    this.startTime = performance.now();
+
     return errorRecovery
       .withRecovery(
         async () => {
@@ -291,6 +294,14 @@ export class FAFEngine {
         break;
       case 'vscode-web':
         files = PlatformExtractors.extractVSCodeWebFiles();
+        break;
+      case 'github':
+      case 'gitlab':
+        files = PlatformExtractors.extractGitHubFiles();
+        break;
+      case 'stackblitz':
+      case 'codesandbox':
+        files = PlatformExtractors.extractStackBlitzFiles();
         break;
       default:
         files = [];

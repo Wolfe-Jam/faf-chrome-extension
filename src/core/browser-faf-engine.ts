@@ -331,8 +331,12 @@ export class BrowserFafEngine {
       );
       const hasTSConfig = context.structure.files.some((f) => f.path.includes('tsconfig.json'));
 
-      // Base GitHub score
-      enhancedScore = 60;
+      // Base GitHub score - penalize heavily if no files extracted
+      if (context.structure.totalFiles === 0) {
+        enhancedScore = 5; // Very low score for platform detection only, no actual content
+      } else {
+        enhancedScore = 60; // Good base score when we have actual files
+      }
 
       // Project structure bonuses
       if (hasPackageJson) enhancedScore += 15;
@@ -354,21 +358,29 @@ export class BrowserFafEngine {
 
     // StackBlitz/CodeSandbox - online IDE environments
     else if (context.platform === 'stackblitz' || context.platform === 'codesandbox') {
-      enhancedScore = Math.max(baseScore, 70); // Good baseline for online IDEs
+      if (context.structure.totalFiles === 0) {
+        enhancedScore = 5; // Very low score for platform detection only
+      } else {
+        enhancedScore = Math.max(baseScore, 70); // Good baseline for online IDEs with files
 
-      // Framework detection bonuses
-      const hasFramework = context.dependencies.packages.some((p) =>
-        ['react', 'vue', 'svelte', 'angular', 'next', 'nuxt'].includes(p.name)
-      );
-      if (hasFramework) enhancedScore += 15;
+        // Framework detection bonuses
+        const hasFramework = context.dependencies.packages.some((p) =>
+          ['react', 'vue', 'svelte', 'angular', 'next', 'nuxt'].includes(p.name)
+        );
+        if (hasFramework) enhancedScore += 15;
 
-      if (context.structure.totalFiles > 3) enhancedScore += 5;
+        if (context.structure.totalFiles > 3) enhancedScore += 5;
+      }
     }
 
     // CodeMirror - basic code editor
     else if (context.platform === 'codemirror') {
-      enhancedScore = Math.max(baseScore, 40); // Lower baseline for simple editor
-      if (context.structure.totalFiles > 1) enhancedScore += 10;
+      if (context.structure.totalFiles === 0) {
+        enhancedScore = 5; // Very low score for platform detection only
+      } else {
+        enhancedScore = Math.max(baseScore, 40); // Lower baseline for simple editor
+        if (context.structure.totalFiles > 1) enhancedScore += 10;
+      }
     }
 
     // HuggingFace - machine learning platform

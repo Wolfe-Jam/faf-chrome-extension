@@ -8,6 +8,7 @@ import { telemetry } from '@/core/telemetry';
 let lastExtraction = null;
 let isExtracting = false;
 let error = null;
+let projectName = '';
 
 // Load stored extraction on mount
 onMount(async () => {
@@ -155,7 +156,7 @@ async function handleDownload() {
   if (!lastExtraction?.faf) return;
 
   try {
-    await DownloadsManager.downloadFafFile(lastExtraction.faf);
+    await DownloadsManager.downloadFafFile(lastExtraction.faf, projectName.trim() || null);
 
     // Track download action
     telemetry.track('user_action', {
@@ -185,12 +186,18 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-// Get score color
-function getScoreColor(score) {
-  if (score >= 90) return '#10b981'; // green-500
-  if (score >= 70) return '#3b82f6'; // blue-500
-  if (score >= 50) return '#f59e0b'; // amber-500
-  return '#ef4444'; // red-500
+// Determine grab quality message
+function getGrabMessage(extraction) {
+  const files = extraction.faf.context.structure.files.length;
+  const lines = extraction.faf.context.structure.totalLines;
+
+  // Power Grab: multiple files (5+) OR lots of lines (1000+)
+  if (files >= 5 || lines >= 1000) {
+    return "⚡ Power Grab! Congrats!";
+  }
+
+  // Standard Grab
+  return "✅ Grab Successful";
 }
 </script>
 
@@ -200,7 +207,7 @@ function getScoreColor(score) {
       <span class="emoji">⚡</span>
       <h1>FAF - Fast AF</h1>
     </div>
-    <div class="tagline">Lightning-fast AI context extraction</div>
+    <div class="tagline">Instant stack grabber - No scoring, just extraction</div>
   </header>
 
   <main>
@@ -213,18 +220,20 @@ function getScoreColor(score) {
 
     {#if lastExtraction?.success}
       <div class="extraction-result">
-        <div class="score-section">
-          <div class="score-badge" style="background: {getScoreColor(lastExtraction.faf.score)}">
-            {lastExtraction.faf.score}%
-          </div>
-          <div class="score-details">
-            <div class="platform">
+        <div class="extraction-summary">
+          <div class="summary-header">{getGrabMessage(lastExtraction)}</div>
+          <div class="summary-details">
+            <div class="detail-item">
               <span class="label">Platform:</span>
               <span class="value">{lastExtraction.faf.context.platform}</span>
             </div>
-            <div class="files">
+            <div class="detail-item">
               <span class="label">Files:</span>
               <span class="value">{lastExtraction.faf.context.structure.files.length}</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Lines:</span>
+              <span class="value">{lastExtraction.faf.context.structure.totalLines}</span>
             </div>
           </div>
         </div>
@@ -243,6 +252,19 @@ function getScoreColor(score) {
           {/if}
         </div>
 
+        <div class="project-name-section">
+          <label for="project-name">📁 Project folder name (optional):</label>
+          <input
+            type="text"
+            id="project-name"
+            bind:value={projectName}
+            placeholder="my-awesome-project"
+            class="project-name-input"
+            on:keydown={(e) => e.key === 'Enter' && handleDownload()}
+          />
+          <div class="hint-text">Creates a folder for your new project</div>
+        </div>
+
         <div class="action-buttons">
           <button class="copy-button" on:click={handleCopy}>
             📋 Copy FAF
@@ -255,8 +277,8 @@ function getScoreColor(score) {
     {:else if !error}
       <div class="empty-state">
         <div class="empty-icon">🚀</div>
-        <p>Ready to extract context</p>
-        <p class="hint">Click below to analyze this page's code and content</p>
+        <p>Ready to grab this stack</p>
+        <p class="hint">Click below to extract files and metadata</p>
       </div>
     {/if}
 
@@ -267,17 +289,17 @@ function getScoreColor(score) {
     >
       {#if isExtracting}
         <span class="spinner">⟳</span>
-        Extracting...
+        Grabbing...
       {:else}
         <span class="bolt">⚡</span>
-        Extract AI Context
+        GRAB
       {/if}
     </button>
   </main>
 
   <footer>
     <a href="https://github.com/Wolfe-Jam/faf-chrome-extension" target="_blank">
-      v1.0.2
+      v1.0.5
     </a>
     <span class="separator">•</span>
     <span class="tagline-footer">Fast AI Context</span>
@@ -295,7 +317,7 @@ function getScoreColor(score) {
 
   header {
     padding: 16px;
-    background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     color: white;
   }
 
@@ -341,33 +363,30 @@ function getScoreColor(score) {
     margin-bottom: 16px;
   }
 
-  .score-section {
+  .extraction-summary {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-left: 4px solid #2c3e50;
+  }
+
+  .summary-header {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 12px;
+  }
+
+  .summary-details {
     display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 16px;
+    flex-direction: column;
+    gap: 8px;
   }
 
-  .score-badge {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 20px;
-    font-weight: bold;
-  }
-
-  .score-details {
-    flex: 1;
-  }
-
-  .platform, .files {
+  .detail-item {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 4px;
     font-size: 14px;
   }
 
@@ -377,6 +396,7 @@ function getScoreColor(score) {
 
   .value {
     font-weight: 500;
+    color: #1f2937;
   }
 
   .file-list {
@@ -415,6 +435,43 @@ function getScoreColor(score) {
     text-align: center;
   }
 
+  .project-name-section {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+  }
+
+  .project-name-section label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 6px;
+  }
+
+  .project-name-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: monospace;
+    box-sizing: border-box;
+  }
+
+  .project-name-input:focus {
+    outline: none;
+    border-color: #2c3e50;
+    box-shadow: 0 0 0 3px rgba(44, 62, 80, 0.1);
+  }
+
+  .hint-text {
+    margin-top: 4px;
+    font-size: 11px;
+    color: #9ca3af;
+  }
+
   .empty-state {
     text-align: center;
     padding: 32px 16px;
@@ -451,7 +508,7 @@ function getScoreColor(score) {
   }
 
   .extract-button {
-    background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     color: white;
   }
 

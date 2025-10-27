@@ -1,0 +1,36 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HACKER NEWS POST - READY TO SUBMIT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TITLE:
+Show HN: Chrome extension to grab any codebase as .txt (GitHub, Monaco, StackBlitz)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POST BODY:
+I built this Chrome extension to solve my own problem: I was constantly testing things in StackBlitz, Monaco playgrounds, and GitHub repos, then needing to paste that code into Claude or Cursor to ask questions about it. Manually copying files one by one was annoying.
+
+The extension extracts the entire codebase from whatever environment you're in (GitHub, Monaco editor, StackBlitz, GitLab, CodeSandbox, Replit, etc.) and copies it to your clipboard as clean .txt. One click, done.
+
+Chrome Web Store: https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm
+
+GitHub (MIT): https://github.com/Wolfe-Jam/faf-chrome-extension
+
+Built with Svelte 5 + TypeScript. Google approved it. Currently has 9 downloads (honest number—just launched). But it genuinely works well, which is why I use it daily.
+
+The .txt format is intentionally simple—human-readable, AI-compatible, and acts as a pre-cursor to our .faf format (structured AI context). If you work with AI coding assistants and ever think "I wish I could just grab all this code at once," this is that tool.
+
+Happy to answer questions about the implementation, platform detection logic, or anything else.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INSTRUCTIONS:
+1. Go to https://news.ycombinator.com/submit (already open)
+2. Paste title in title field
+3. Paste body in text field
+4. Click Submit
+5. Monitor comments for first 2 hours
+6. Answer questions quickly and technically
+
+BEST TIME: Weekday morning 9-11am PT
+READY TO POST: ✅

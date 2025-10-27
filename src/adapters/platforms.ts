@@ -495,6 +495,9 @@ export class PlatformDetector {
         confidence += 5;
       }
 
+      // Extract rich repository metadata
+      const repoMetadata = this.extractGitHubMetadata();
+
       return {
         files,
         confidence: Math.min(100, confidence),
@@ -504,6 +507,7 @@ export class PlatformDetector {
           hasReadme: GitHubDetector.hasReadme(),
           hasTsConfig: GitHubDetector.hasTsConfig(),
           repository: this.extractGitHubRepo(),
+          ...repoMetadata,
         },
       };
     } catch (error) {
@@ -1065,6 +1069,96 @@ export class PlatformDetector {
     return 'unknown';
   }
 
+  /**
+   * Extract rich GitHub repository metadata for dev-useful context
+   * Updated 2025-10-27 for current GitHub DOM structure
+   */
+  private extractGitHubMetadata(): Record<string, any> {
+    const metadata: Record<string, any> = {};
+
+    try {
+      // Repository description - from meta tag (most reliable)
+      const descriptionMeta = document.querySelector('meta[name="description"]')?.getAttribute('content');
+      if (descriptionMeta) {
+        // Clean up "... - owner/repo" suffix
+        const description = descriptionMeta.split(' - ')[0]?.trim();
+        if (description) metadata.description = description;
+      }
+
+      // Topics/tags - try multiple selectors
+      const topicSelectors = [
+        '[data-ga-click*="topic"]',
+        'a[class*="topic"]',
+        '[href*="/topics/"]'
+      ];
+      for (const selector of topicSelectors) {
+        const topics = Array.from(document.querySelectorAll(selector))
+          .map(el => el.textContent?.trim())
+          .filter(Boolean);
+        if (topics.length > 0) {
+          metadata.topics = topics;
+          break;
+        }
+      }
+
+      // Stars count - find link with "stargazers" in href
+      const starsEl = document.querySelector('[href*="/stargazers"]');
+      if (starsEl) {
+        const starsText = starsEl.textContent?.trim().replace(/\s+/g, ' ');
+        // Extract just the number (e.g., "152k stars" -> "152k")
+        const starsMatch = starsText?.match(/[\d.]+[kmb]?/i);
+        if (starsMatch) metadata.stars = starsMatch[0];
+      }
+
+      // License - try multiple selectors
+      const licenseSelectors = [
+        '[data-testid*="license"]',
+        '[href*="/blob/"][href*="LICENSE"]',
+        'svg.octicon-law + a'
+      ];
+      for (const selector of licenseSelectors) {
+        const licenseEl = document.querySelector(selector);
+        const license = licenseEl?.textContent?.trim();
+        if (license && license.length > 0 && license.length < 50) {
+          metadata.license = license;
+          break;
+        }
+      }
+
+      // Languages - from meta or page content
+      const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
+      if (ogTitle) {
+        // Sometimes languages are in the title
+        const langMatch = ogTitle.match(/\b(TypeScript|JavaScript|Python|Go|Rust|Java|C\+\+|C#|Ruby|PHP)\b/gi);
+        if (langMatch) metadata.languages = [...new Set(langMatch)];
+      }
+
+      // Last commit date - relative-time element
+      const lastCommit = document.querySelector('relative-time')?.getAttribute('datetime');
+      if (lastCommit) metadata.lastUpdated = lastCommit;
+
+      // Default branch - try multiple selectors
+      const branchSelectors = [
+        '[data-hotkey="w"]',
+        'button[data-hotkey="w"] span',
+        '[aria-label*="branch"]'
+      ];
+      for (const selector of branchSelectors) {
+        const branchEl = document.querySelector(selector);
+        const branch = branchEl?.textContent?.trim();
+        if (branch && branch.length > 0 && branch.length < 50) {
+          metadata.defaultBranch = branch;
+          break;
+        }
+      }
+
+    } catch (error) {
+      console.warn('Failed to extract some GitHub metadata:', error);
+    }
+
+    return metadata;
+  }
+
   private detectLanguageFromPath(filename: string): string {
     const ext = filename.split('.').pop()?.toLowerCase();
     const langMap: Record<string, string> = {
@@ -1305,6 +1399,68 @@ export class PlatformExtractors {
     } catch (_error) {
       return [];
     }
+  }
+
+  static extractGitHubFiles(): readonly FileInfo[] {
+    try {
+      const files: FileInfo[] = [];
+
+      // Extract visible file content if on a file page
+      const fileContent = document.querySelector(
+        '.blob-wrapper .blob-code-content, .markdown-body'
+      );
+      if (fileContent) {
+        const content = fileContent.textContent || '';
+        const currentFile = window.location.pathname.split('/').pop() || 'unknown';
+
+        files.push({
+          path: currentFile,
+          language: PlatformExtractors.detectLanguageFromPath(currentFile),
+          content,
+          lines: content.split('\n').length,
+          size: new TextEncoder().encode(content).length,
+        });
+      }
+
+      return files;
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  static extractStackBlitzFiles(): readonly FileInfo[] {
+    try {
+      // StackBlitz uses Monaco editor, so use that extractor
+      return PlatformExtractors.extractMonacoFiles();
+    } catch (_error) {
+      return [];
+    }
+  }
+
+  private static detectLanguageFromPath(path: string): string {
+    const ext = path.split('.').pop()?.toLowerCase();
+    const langMap: Record<string, string> = {
+      js: 'javascript',
+      ts: 'typescript',
+      jsx: 'javascript',
+      tsx: 'typescript',
+      py: 'python',
+      rb: 'ruby',
+      go: 'go',
+      rs: 'rust',
+      java: 'java',
+      cpp: 'cpp',
+      c: 'c',
+      cs: 'csharp',
+      php: 'php',
+      html: 'html',
+      css: 'css',
+      json: 'json',
+      yaml: 'yaml',
+      yml: 'yaml',
+      md: 'markdown',
+    };
+    return ext && langMap[ext] ? langMap[ext] : 'text';
   }
 
   private static getExtensionFromLanguage(language: string): string {

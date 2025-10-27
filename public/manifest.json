@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "FAF - Fast AF ⚡️ AI-Context",
-  "version": "1.0.3",
-  "description": "🎉 Friday Features! Chrome Extension projects get 90%+ scores automatically. Extract AI context instantly!",
+  "name": "STACK Grabber ⚡️ .FAF - Fast AF",
+  "version": "1.5.1",
+  "description": "Grab any stack from GitHub, GitLab, StackBlitz.. Scaffold new projects for Claude, Codex, Cursor, Gemini CLI, Warp et al.",
   
   "icons": {
     "16": "icons/social-logo-16.png",

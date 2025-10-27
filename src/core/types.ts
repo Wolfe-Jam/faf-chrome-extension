@@ -111,6 +111,16 @@ export interface ExtractionMetadata {
   readonly timestamp: string;
   readonly url: string;
   readonly userAgent: string;
+  // GitHub-specific rich metadata
+  readonly description?: string;
+  readonly topics?: readonly string[];
+  readonly stars?: string;
+  readonly license?: string;
+  readonly languages?: readonly string[];
+  readonly lastUpdated?: string;
+  readonly defaultBranch?: string;
+  // Generic metadata for other platforms
+  readonly [key: string]: any;
 }
 
 export interface CodeContext {

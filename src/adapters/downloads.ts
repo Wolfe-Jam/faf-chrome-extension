@@ -6,22 +6,22 @@ import type { FAFFile, FileInfo } from '@/core/types';
 
 export class DownloadsManager {
   /**
-   * Generate a branded .faf file and download it to Downloads folder
+   * Generate a branded .faf file and download it to user-specified location
    */
-  static async downloadFafFile(fafData: FAFFile): Promise<void> {
+  static async downloadFafFile(fafData: FAFFile, projectName: string | null = null): Promise<void> {
     const brandedContent = DownloadsManager.generateBrandedFafContent(fafData);
-    const filename = DownloadsManager.generateFilename(fafData);
+    const filename = DownloadsManager.generateFilename(fafData, projectName);
 
     try {
       // Create blob URL
       const blob = new Blob([brandedContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
 
-      // Trigger download via Chrome Downloads API
+      // Trigger download via Chrome Downloads API with save dialog
       await chrome.downloads.download({
         url: url,
         filename: filename,
-        saveAs: false, // Auto-save to Downloads
+        saveAs: true, // Show save dialog for user to choose location
       });
 
       // Clean up blob URL
@@ -35,98 +35,122 @@ export class DownloadsManager {
   }
 
   /**
-   * Generate branded FAF content with marketing links
+   * Generate branded .faf file with human-readable header + full extraction data
+   * Design: Dream Ticket - gorgeous human summary + complete AI-ready context
    */
   private static generateBrandedFafContent(fafData: FAFFile): string {
     const timestamp = new Date().toISOString().split('T')[0];
     const projectName = DownloadsManager.extractProjectName(fafData);
-    const score = fafData.score || 0;
+    const cleanUrl = DownloadsManager.cleanRepoUrl(fafData.context.metadata?.url || 'Unknown');
+    const totalFiles = fafData.context.structure.files?.length || 0;
+    const totalLines = fafData.context.structure?.totalLines || 0;
+    const metadata = fafData.context.metadata || {};
 
-    return `# 🚀 FAF (Fast AF ⚡️ AI-Context) - ${projectName}
-# Generated on ${timestamp} | Score: ${score}%
-# 
-# 🏎️ Powered by faf-engine Mk-1 - Real Intelligence, No Fakes!
-# ⚡️ Get FAF Chrome Extension: https://chrome.google.com/webstore (search "FAF")
-# 🌐 Learn more: https://faf.one
-# 💬 Join the revolution: Stop faffing about with manual context!
-#
-# 📋 Share this .faf file with your AI assistants for instant project context
-# 🎯 Spread the word: FAF = The Universal AI Context Standard
-#
-# Created by 🏎️⚡️WolfeJam - Production-Quality AI Tools
+    // Human-first summary at top - THE DREAM TICKET
+    let humanSummary = `# ========================================
+# STACK SUMMARY (Quick Reference)
+# ========================================
+
+Project: ${projectName}
+Source: ${cleanUrl}
+${metadata.description ? `About: ${metadata.description}` : ''}
+${metadata.topics && metadata.topics.length > 0 ? `Stack: ${metadata.topics.join(', ')}` : ''}
+${metadata.stars ? `Stars: ${metadata.stars}` : ''}${metadata.license ? ` | License: ${metadata.license}` : ''}
+${metadata.languages && metadata.languages.length > 0 ? `Languages: ${metadata.languages.join(', ')}` : ''}
+${metadata.lastUpdated ? `Last Updated: ${metadata.lastUpdated.split('T')[0]}` : ''}
+
+Extracted: ${timestamp}
+Files: ${totalFiles} | Lines: ${totalLines}
+
+Quick Start:
+  1. Drop this entire file into any AI conversation
+  2. Or use: faf init (for complete project DNA with scoring)
+  3. Start building!
+
+Get FAF CLI: npm install -g faf-cli
+More info: https://faf.one
+
+# ========================================
+# FULL EXTRACTION DATA (AI-Ready)
+# ========================================
 
 ---
+extraction:
+  source: chrome-extension
+  version: 1.0.5
+  timestamp: "${timestamp}"
+
 project:
   name: "${projectName}"
-  description: "AI Context extracted by FAF Chrome Extension"
-  goal: "Perfect context for AI assistance"
-  source_url: "${fafData.context.metadata?.url || 'Unknown'}"
-  extraction_date: "${timestamp}"
-  faf_version: "${fafData.context.metadata?.version || '1.0.1'}"
-  intelligence_score: "${score}%"
+  source_url: "${cleanUrl}"
 
-# 🎯 REAL ANALYSIS RESULTS (Not Fake Scores!)
 context:
   platform: "${fafData.context.platform || 'unknown'}"
-  total_files: ${fafData.context.structure.files?.length || 0}
+  total_files: ${totalFiles}
+  total_lines: ${totalLines}
   file_types: ${DownloadsManager.getUniqueLanguages(fafData.context.structure.files || [])}
   extraction_time: "${fafData.context.metadata?.extractionTime || 0}ms"
-  
-# 📁 FILE STRUCTURE
+
 files:
 ${DownloadsManager.formatFilesForYaml(fafData.context.structure.files || [])}
 
-# 🏗️ PROJECT STRUCTURE  
 structure:
   directories: ${JSON.stringify(fafData.context.structure?.directories || [])}
   entry_points: ${JSON.stringify(fafData.context.structure?.entryPoints || [])}
-  total_lines: ${fafData.context.structure?.totalLines || 0}
 
-# 📦 DEPENDENCIES (If Detected)
 dependencies:
   runtime: "${fafData.context.dependencies?.runtime?.language || 'Unknown'}"
   package_manager: "${fafData.context.dependencies?.runtime?.packageManager || 'Unknown'}"
   packages: ${JSON.stringify(fafData.context.dependencies?.packages?.map((p) => p.name) || [])}
 
-# 🌐 METADATA
-metadata:
-  user_agent: "${fafData.context.metadata?.userAgent || 'Unknown'}"
-  timestamp: "${fafData.context.metadata?.timestamp || new Date().toISOString()}"
-  faf_engine: "faf-engine Mk-1"
-  extraction_method: "Chrome Extension with Real Intelligence"
+# End Chrome Extension Extraction
+# Download = The Dream Ticket (Human + AI in one beautiful file)`;
 
-# 🚀 GET FAF FOR YOUR TEAM
-# Chrome Extension: https://chrome.google.com/webstore (search "FAF") 
-# Website: https://faf.one
-# Created by: 🏎️⚡️WolfeJam
-#
-# 💡 Why FAF?
-# ✅ Real faf-engine Mk-1 analysis (not fake scores!)
-# ✅ Universal AI context standard
-# ✅ One-click extraction from any codebase
-# ✅ Perfect for ChatGPT, Claude, Gemini, etc.
-# ✅ Share .faf files for instant project context
-#
-# 🎯 Stop faffing about - Get perfect AI context instantly!
-
----
-# End of FAF Context File
-# Share this with your AI assistant for instant project understanding
-# Get FAF: https://faf.one | 🏎️⚡️WolfeJam`;
+    return humanSummary;
   }
 
   /**
-   * Generate filename with project name and timestamp
+   * Generate filename with optional project folder and timestamp
    */
-  private static generateFilename(fafData: FAFFile): string {
-    const projectName = DownloadsManager.extractProjectName(fafData)
-      .replace(/[^a-zA-Z0-9-_]/g, '_') // Safe filename
+  private static generateFilename(fafData: FAFFile, projectFolder: string | null = null): string {
+    const timestamp = new Date().toISOString().split('T')[0];
+
+    // If projectFolder is provided, use it for both folder AND filename
+    if (projectFolder && projectFolder.trim()) {
+      const safeFolderName = projectFolder.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
+      const filename = `${safeFolderName}_${timestamp}.faf.txt`;
+      return `${safeFolderName}/${filename}`;
+    }
+
+    // Fallback: extract name from repo URL
+    const extractedName = DownloadsManager.extractProjectName(fafData)
+      .replace(/[^a-zA-Z0-9-_]/g, '_')
       .toLowerCase();
 
-    const timestamp = new Date().toISOString().split('T')[0];
-    const score = fafData.score || 0;
+    const filename = `${extractedName}_${timestamp}.faf.txt`;
+    return filename;
+  }
 
-    return `${projectName}_${timestamp}_${score}percent.txt`;
+  /**
+   * Clean repo URL - strip releases, issues, tags, etc. to get clean repo URL
+   */
+  private static cleanRepoUrl(url: string): string {
+    if (url === 'Unknown') return url;
+
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.hostname.includes('github.com')) {
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        // Get owner/repo only (first 2 parts)
+        if (pathParts.length >= 2) {
+          return `https://github.com/${pathParts[0]}/${pathParts[1]}`;
+        }
+      }
+    } catch {
+      return url;
+    }
+
+    return url;
   }
 
   /**
@@ -138,8 +162,9 @@ metadata:
       const url = new URL(fafData.context.metadata.url);
       if (url.hostname.includes('github.com')) {
         const pathParts = url.pathname.split('/').filter(Boolean);
+        // Clean repo name from pathParts[1], regardless of page type (releases, issues, etc.)
         if (pathParts.length >= 2) {
-          return pathParts[1] || 'unknown_project'; // repo name
+          return pathParts[1] || 'unknown_project';
         }
       }
     }
@@ -157,22 +182,20 @@ metadata:
   }
 
   /**
-   * Format files list for YAML output
+   * Format files list for YAML output with content
    */
   private static formatFilesForYaml(files: readonly FileInfo[]): string {
     if (files.length === 0) return '  # No files extracted';
 
     return files
       .slice(0, 20)
-      .map(
-        (
-          file // Limit to first 20 files
-        ) =>
-          `  - path: "${file.path}"
+      .map((file) => {
+        const content = file.content ? `\n    content: |\n${file.content.split('\n').map(line => `      ${line}`).join('\n')}` : '';
+        return `  - path: "${file.path}"
     language: "${file.language || 'unknown'}"
     lines: ${file.lines || 0}
-    size: ${file.size || 0}`
-      )
+    size: ${file.size || 0}${content}`;
+      })
       .join('\n');
   }
 }

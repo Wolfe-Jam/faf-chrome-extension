@@ -199,8 +199,8 @@ document.getElementById('download').addEventListener('click', function() {
   
   // Generate professional report content
   const report = `=====================================================
-.faf AI-CONTEXT Analysis Report ⚡️
-Generated: ${now.toLocaleString()} ⌚️ https://www.faf.one
+Context Extraction Report ⚡️.FAF
+Generated: ${now.toLocaleString()} ⌚️ https://faf.one
 =====================================================
 
 PROJECT: ${data.platform} Analysis
@@ -228,17 +228,16 @@ environments, and AI-context rich content.
 • CodeSandbox projects  
 • Development documentation
 • Code editor environments` :
-`🚀 IMPROVE YOUR SCORE:
-• Online analyzer: https://www.faf.one/analyze
-• CLI tool: https://www.faf.one/cli  
-• Documentation: https://www.faf.one/docs`}
+`🚀 LEARN MORE:
+• Website: https://faf.one
+• Chrome Extension: https://chromewebstore.google.com/detail/lnecebepmpjpilldfmndnaofbfjkjlkm`}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Version 1.0.3
 🤖 AI-Context for AI by AI (and that 🇬🇧Guy)
 Made with 🧡 for developers of all skill levels
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏁 https://faf.one - AI-Context⚡️Fast AF 
+🏁 https://faf.one - Context Extraction ⚡️Fast AF 
 🏎️⚡️ F1-Inspired Software Engineering
 ☕️ Dev Support: https://buymeacoffee.com/wolfejam
 
