@@ -1,7 +1,7 @@
 {
   "name": "faf-chrome-extension",
   "version": "1.6.0",
-  "description": "Stack grabber Chrome extension for developers. Generates .faf.txt reports from GitHub, GitLab, StackBlitz, and code editors.",
+  "description": "Stack⚡️Grabber - Chrome extension for developers. Generates .faf.txt reports from GitHub, GitLab, StackBlitz, and code editors.",
   "type": "module",
   "private": true,
   "scripts": {
