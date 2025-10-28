@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "STACK Grabber ⚡️ .FAF - Fast AF",
-  "version": "1.5.1",
-  "description": "Grab any stack from GitHub, GitLab, StackBlitz.. Scaffold new projects for Claude, Codex, Cursor, Gemini CLI, Warp et al.",
+  "name": "Stack Grabber",
+  "version": "1.6.0",
+  "description": "The ColorZilla for stacks. Click any repo, get instant stack info. React, n8n, Monaco & more. No cloning, no waiting.",
   
   "icons": {
     "16": "icons/social-logo-16.png",
@@ -17,7 +17,7 @@
       "16": "icons/social-logo-16.png",
       "32": "icons/social-logo-32.png"
     },
-    "default_title": "FAF - Click for instant AI context ⚡️"
+    "default_title": "Stack Grabber - Click to grab this stack"
   },
   
   "background": {
@@ -51,7 +51,7 @@
         "default": "Ctrl+Shift+F",
         "mac": "Command+Shift+F"
       },
-      "description": "Extract AI context instantly"
+      "description": "Grab stack info instantly"
     }
   },
   

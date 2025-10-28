@@ -106,6 +106,11 @@ class ContentScriptManager {
 
       // Handle different message types
       switch (message.type) {
+        case 'PING':
+          // Readiness check - respond immediately
+          sendResponse({ type: 'PONG', ready: true, timestamp: Date.now() });
+          return true;
+
         case 'EXTRACT_CONTEXT':
           this.handleExtractContext(message as ExtractContextMessage)
             .then((result) => sendResponse(result))
@@ -134,24 +139,26 @@ class ContentScriptManager {
   private async handleExtractContext(
     _message: ExtractContextMessage
   ): Promise<import('@/core/types').ExtractionResult> {
-    // Prevent concurrent extractions
-    if (this.state.isExtracting()) {
-      throw new ContentScriptError('Extraction already in progress', 'EXTRACTION_FAILED');
-    }
-
-    this.state.setExtracting(true);
+    console.log('🎯 [CONTENT SCRIPT] handleExtractContext() called');
 
     try {
+      // Prevent concurrent extractions
+      if (this.state.isExtracting()) {
+        console.error('🚨 Already extracting!');
+        throw new ContentScriptError('Extraction already in progress', 'EXTRACTION_FAILED');
+      }
+
+      console.log('🎯 [CONTENT SCRIPT] Setting extracting state...');
+      this.state.setExtracting(true);
+      console.log('🎯 [CONTENT SCRIPT] State set, starting engine.extract()');
+
       // Extract context with the engine
       const result = await this.state.getEngine().extract();
+      console.log('🎯 [CONTENT SCRIPT] engine.extract() completed:', result.success);
 
       if (!result.success) {
         throw new ContentScriptError(`Extraction failed: ${result.error}`, 'EXTRACTION_FAILED');
       }
-
-      // Copy to clipboard (returns boolean for success)
-      // Skip clipboard in content script - popup handles it with proper user gesture
-      const clipboardSuccess = true;
 
       // Send success message to background
       await ChromeRuntime.sendMessage({
@@ -161,12 +168,16 @@ class ContentScriptManager {
         source: 'content',
       });
 
-      // Show success notification
-      this.showSuccessNotification(result.faf.score, clipboardSuccess);
+      // Show success notification (no clipboard - popup handles that)
+      this.showSuccessNotification();
 
       // Return the extraction result to the popup
       return result;
     } catch (error) {
+      console.error('🚨 [CONTENT SCRIPT] Catch block - error occurred:', error);
+      console.error('🚨 [CONTENT SCRIPT] Error details:', error instanceof Error ? error.message : error);
+      console.error('🚨 [CONTENT SCRIPT] Stack:', error instanceof Error ? error.stack : 'No stack');
+
       // Send error to background (don't await to prevent blocking)
       ChromeRuntime.sendMessage({
         type: 'ERROR',
@@ -190,43 +201,33 @@ class ContentScriptManager {
   }
 
   /**
-   * Show success notification with score and clipboard status
+   * Show success notification for extraction
    */
-  private showSuccessNotification(score: number, clipboardSuccess: boolean = true): void {
+  private showSuccessNotification(): void {
     try {
       const notification = document.createElement('div');
       notification.className = 'faf-success-notification';
 
-      const clipboardStatus = clipboardSuccess
-        ? 'Copied to clipboard!'
-        : 'Manual copy needed - check console';
-
-      const icon = clipboardSuccess ? '⚡️' : '⚠️';
-      const bgColor = clipboardSuccess ? '#00FF41' : '#FF6B35';
-
       notification.innerHTML = `
         <div class="faf-notification-content">
-          <span class="faf-notification-icon">${icon}</span>
-          <span class="faf-notification-text">Context extracted (${score}%) - ${clipboardStatus}</span>
+          <span class="faf-notification-text">Stack⚡️Grabbed</span>
         </div>
       `;
 
-      // Add styles with dynamic colors based on clipboard success
+      // Add styles
       Object.assign(notification.style, {
         position: 'fixed',
         top: '20px',
-        left: '20px', // Move to left to avoid popup conflict
-        background: bgColor,
-        color: clipboardSuccess ? '#0A0A0A' : '#FFF8F0',
+        right: '20px', // Position near the popup on the right
+        background: 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)', // Steel blue
+        color: '#ffffff',
         padding: '12px 16px',
         borderRadius: '8px',
         fontFamily: 'system-ui, sans-serif',
         fontSize: '14px',
         fontWeight: '600',
         zIndex: '2147483647', // Maximum z-index value
-        boxShadow: clipboardSuccess
-          ? '0 4px 12px rgba(0, 255, 65, 0.3)'
-          : '0 4px 12px rgba(255, 107, 53, 0.3)',
+        boxShadow: '0 4px 12px rgba(44, 62, 80, 0.3)',
         animation: 'fafSlideIn 0.3s ease-out',
       });
 
@@ -236,7 +237,7 @@ class ContentScriptManager {
         style.id = 'faf-notification-styles';
         style.textContent = `
           @keyframes fafSlideIn {
-            from { transform: translateX(-100%); opacity: 0; }
+            from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
           }
         `;

@@ -5,7 +5,6 @@
 
 import { FAFError, FAFErrorCode } from '@/core/errors';
 import type { CodeContext, FileInfo, Platform } from '@/core/types';
-import { createScore as makeScore } from '@/core/types';
 
 export interface WindowWithEditors extends Window {
   monaco?: {
@@ -495,8 +494,11 @@ export class PlatformDetector {
         confidence += 5;
       }
 
-      // Extract rich repository metadata
+      // CHAMPIONSHIP FIX: Non-blocking metadata extraction
+      // Returns immediately with whatever DOM elements are available
+      console.log('🚀 [DEBUG] About to call extractGitHubMetadata()');
       const repoMetadata = this.extractGitHubMetadata();
+      console.log('✅ [DEBUG] extractGitHubMetadata() returned:', Object.keys(repoMetadata));
 
       return {
         files,
@@ -511,7 +513,8 @@ export class PlatformDetector {
         },
       };
     } catch (error) {
-      console.warn('GitHub context extraction failed:', error);
+      console.error('🚨 [DEBUG] GitHub context extraction failed:', error);
+      console.error('🚨 [DEBUG] Error stack:', error instanceof Error ? error.stack : 'No stack');
       return this.getFallbackExtractedData();
     }
   }
@@ -986,7 +989,6 @@ export class PlatformDetector {
   private buildCodeContext(platform: Platform, data: ExtractedData): CodeContext {
     return {
       platform,
-      score: makeScore(data.confidence),
       structure: {
         files: data.files,
         directories: this.extractDirectories(data.files),
@@ -1020,7 +1022,6 @@ export class PlatformDetector {
   private buildFallbackContext(): CodeContext {
     return {
       platform: 'unknown',
-      score: makeScore(25),
       structure: {
         files: [],
         directories: [],
@@ -1070,92 +1071,136 @@ export class PlatformDetector {
   }
 
   /**
+   * Wait for element to appear in DOM (polling approach)
+   */
+  private async waitForElement(selector: string, timeout: number = 5000): Promise<Element | null> {
+    return new Promise((resolve) => {
+      // Check every 50ms for the element
+      const interval = setInterval(() => {
+        const element = document.querySelector(selector);
+        if (element) {
+          clearInterval(interval);
+          resolve(element);
+        }
+      }, 50);
+
+      // Stop checking after timeout
+      setTimeout(() => {
+        clearInterval(interval);
+        resolve(null);
+      }, timeout);
+    });
+  }
+
+  /**
    * Extract rich GitHub repository metadata for dev-useful context
-   * Updated 2025-10-27 for current GitHub DOM structure
+   * NON-BLOCKING: Returns immediately with whatever is available
+   * Updated 2025-10-28 to fix timeout issues
    */
   private extractGitHubMetadata(): Record<string, any> {
+    console.log('🔍 [DEBUG] extractGitHubMetadata() called (non-blocking)');
     const metadata: Record<string, any> = {};
 
     try {
-      // Repository description - from meta tag (most reliable)
+      // Repository description - from meta tag (most reliable, usually immediate)
       const descriptionMeta = document.querySelector('meta[name="description"]')?.getAttribute('content');
+      console.log('🔍 [DEBUG] Description meta:', descriptionMeta ? 'FOUND' : 'NOT FOUND', descriptionMeta);
       if (descriptionMeta) {
         // Clean up "... - owner/repo" suffix
         const description = descriptionMeta.split(' - ')[0]?.trim();
-        if (description) metadata.description = description;
-      }
-
-      // Topics/tags - try multiple selectors
-      const topicSelectors = [
-        '[data-ga-click*="topic"]',
-        'a[class*="topic"]',
-        '[href*="/topics/"]'
-      ];
-      for (const selector of topicSelectors) {
-        const topics = Array.from(document.querySelectorAll(selector))
-          .map(el => el.textContent?.trim())
-          .filter(Boolean);
-        if (topics.length > 0) {
-          metadata.topics = topics;
-          break;
+        if (description) {
+          metadata.description = description;
+          console.log('🔍 [DEBUG] Added description:', description);
         }
       }
 
-      // Stars count - find link with "stargazers" in href
-      const starsEl = document.querySelector('[href*="/stargazers"]');
+      // Stars count - Try immediately, don't wait
+      const starsEl = document.querySelector('a[href*="/stargazers"]');
+      console.log('🔍 [DEBUG] Stars element:', starsEl ? 'FOUND' : 'NOT FOUND', starsEl?.textContent);
       if (starsEl) {
         const starsText = starsEl.textContent?.trim().replace(/\s+/g, ' ');
         // Extract just the number (e.g., "152k stars" -> "152k")
         const starsMatch = starsText?.match(/[\d.]+[kmb]?/i);
-        if (starsMatch) metadata.stars = starsMatch[0];
+        console.log('🔍 [DEBUG] Stars match:', starsMatch);
+        if (starsMatch) {
+          metadata.stars = starsMatch[0];
+          console.log('🔍 [DEBUG] Added stars:', starsMatch[0]);
+        }
       }
 
-      // License - try multiple selectors
+      // Topics/tags - Try immediately, don't wait
+      const topics = Array.from(document.querySelectorAll('a[href^="/topics/"]'))
+        .map(el => el.textContent?.trim())
+        .filter(Boolean)
+        .filter((topic, index, array) => array.indexOf(topic) === index); // deduplicate
+      console.log('🔍 [DEBUG] Topics found:', topics.length, topics);
+      if (topics.length > 0) {
+        metadata.topics = topics;
+        console.log('🔍 [DEBUG] Added topics:', topics);
+      }
+
+      // License - improved selectors
       const licenseSelectors = [
+        'a[href*="/blob/"][href*="LICENSE"]',
+        'a[href*="/blob/"][href*="COPYING"]',
         '[data-testid*="license"]',
-        '[href*="/blob/"][href*="LICENSE"]',
-        'svg.octicon-law + a'
+        'h2:contains("License") + div a'
       ];
       for (const selector of licenseSelectors) {
         const licenseEl = document.querySelector(selector);
         const license = licenseEl?.textContent?.trim();
         if (license && license.length > 0 && license.length < 50) {
           metadata.license = license;
+          console.log('🔍 [DEBUG] Added license:', license, 'from selector:', selector);
           break;
         }
       }
 
-      // Languages - from meta or page content
-      const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
-      if (ogTitle) {
-        // Sometimes languages are in the title
-        const langMatch = ogTitle.match(/\b(TypeScript|JavaScript|Python|Go|Rust|Java|C\+\+|C#|Ruby|PHP)\b/gi);
-        if (langMatch) metadata.languages = [...new Set(langMatch)];
+      // Languages - Try immediately, don't wait
+      const languageLinks = Array.from(document.querySelectorAll('a[href*="search?l="]'));
+      console.log('🔍 [DEBUG] Language links found:', languageLinks.length);
+      if (languageLinks.length > 0) {
+        const languages = languageLinks
+          .map(el => {
+            const href = el.getAttribute('href') || '';
+            const match = href.match(/search\?l=([^&]+)/);
+            return match ? decodeURIComponent(match[1]) : null;
+          })
+          .filter(Boolean) as string[];
+
+        console.log('🔍 [DEBUG] Parsed languages:', languages);
+        if (languages.length > 0) {
+          metadata.languages = languages;
+          console.log('🔍 [DEBUG] Added languages:', languages);
+        }
       }
 
       // Last commit date - relative-time element
       const lastCommit = document.querySelector('relative-time')?.getAttribute('datetime');
-      if (lastCommit) metadata.lastUpdated = lastCommit;
+      console.log('🔍 [DEBUG] Last commit:', lastCommit ? 'FOUND' : 'NOT FOUND', lastCommit);
+      if (lastCommit) {
+        metadata.lastUpdated = lastCommit;
+        console.log('🔍 [DEBUG] Added lastUpdated:', lastCommit);
+      }
 
-      // Default branch - try multiple selectors
-      const branchSelectors = [
-        '[data-hotkey="w"]',
-        'button[data-hotkey="w"] span',
-        '[aria-label*="branch"]'
-      ];
-      for (const selector of branchSelectors) {
-        const branchEl = document.querySelector(selector);
-        const branch = branchEl?.textContent?.trim();
+      // Default branch - improved selector
+      const branchButton = document.querySelector('[data-hotkey="w"]');
+      console.log('🔍 [DEBUG] Branch button:', branchButton ? 'FOUND' : 'NOT FOUND', branchButton?.textContent);
+      if (branchButton) {
+        const branch = branchButton.textContent?.trim();
         if (branch && branch.length > 0 && branch.length < 50) {
           metadata.defaultBranch = branch;
-          break;
+          console.log('🔍 [DEBUG] Added defaultBranch:', branch);
         }
       }
 
     } catch (error) {
+      console.error('🚨 [DEBUG] ERROR in extractGitHubMetadata:', error);
       console.warn('Failed to extract some GitHub metadata:', error);
     }
 
+    console.log('🔍 [DEBUG] Final metadata object:', metadata);
+    console.log('🔍 [DEBUG] Final metadata keys:', Object.keys(metadata));
     return metadata;
   }
 
@@ -1247,7 +1292,6 @@ export class PlatformDetector {
 
     return {
       platform,
-      score: makeScore(platform === 'unknown' ? 25 : 75),
       structure: {
         files: [],
         directories: [],

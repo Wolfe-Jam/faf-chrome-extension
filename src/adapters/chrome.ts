@@ -312,22 +312,9 @@ export class ChromeAction {
   }
 
   static async updateBadge(score: Score): Promise<void> {
-    const scoreValue = score as number;
-    const badgeText = `${scoreValue}%`;
-
-    let badgeColor: string;
-    if (scoreValue >= 80) {
-      badgeColor = '#FF6B35'; // Orange
-    } else if (scoreValue >= 50) {
-      badgeColor = '#5CE1E6'; // Cyan
-    } else {
-      badgeColor = '#0A0A0A'; // Black
-    }
-
-    await Promise.all([
-      ChromeAction.setBadgeText(badgeText),
-      ChromeAction.setBadgeBackgroundColor(badgeColor),
-    ]);
+    // No badge display - keep it clean
+    // Badge removed as this is an extraction tool, not a scoring tool
+    await ChromeAction.setBadgeText('');
   }
 }
 

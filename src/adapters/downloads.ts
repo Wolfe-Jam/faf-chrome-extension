@@ -17,28 +17,27 @@ export class DownloadsManager {
       const blob = new Blob([brandedContent], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
 
-      // Trigger download via Chrome Downloads API with save dialog
+      // Trigger download via Chrome Downloads API (simple, works for both modes)
       await chrome.downloads.download({
         url: url,
         filename: filename,
-        saveAs: true, // Show save dialog for user to choose location
+        saveAs: false, // Auto-save to Downloads (no dialog)
       });
 
-      // Clean up blob URL
+      // Clean up blob URL after a delay
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-      console.log(`✅ FAF file downloaded: ${filename}`);
     } catch (error) {
       console.error('Failed to download FAF file:', error);
-      throw new Error('Failed to save FAF file to Downloads');
+      throw new Error(`Failed to save FAF file to Downloads: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
   /**
    * Generate branded .faf file with human-readable header + full extraction data
    * Design: Dream Ticket - gorgeous human summary + complete AI-ready context
+   * Public so Copy button can use the same format
    */
-  private static generateBrandedFafContent(fafData: FAFFile): string {
+  static generateBrandedFafContent(fafData: FAFFile): string {
     const timestamp = new Date().toISOString().split('T')[0];
     const projectName = DownloadsManager.extractProjectName(fafData);
     const cleanUrl = DownloadsManager.cleanRepoUrl(fafData.context.metadata?.url || 'Unknown');
@@ -75,21 +74,9 @@ More info: https://faf.one
 # ========================================
 
 ---
-extraction:
-  source: chrome-extension
-  version: 1.0.5
-  timestamp: "${timestamp}"
-
 project:
   name: "${projectName}"
   source_url: "${cleanUrl}"
-
-context:
-  platform: "${fafData.context.platform || 'unknown'}"
-  total_files: ${totalFiles}
-  total_lines: ${totalLines}
-  file_types: ${DownloadsManager.getUniqueLanguages(fafData.context.structure.files || [])}
-  extraction_time: "${fafData.context.metadata?.extractionTime || 0}ms"
 
 files:
 ${DownloadsManager.formatFilesForYaml(fafData.context.structure.files || [])}
@@ -99,8 +86,8 @@ structure:
   entry_points: ${JSON.stringify(fafData.context.structure?.entryPoints || [])}
 
 dependencies:
-  runtime: "${fafData.context.dependencies?.runtime?.language || 'Unknown'}"
-  package_manager: "${fafData.context.dependencies?.runtime?.packageManager || 'Unknown'}"
+  runtime: "${fafData.context.dependencies?.runtime?.language || 'unknown'}"
+  package_manager: "${fafData.context.dependencies?.runtime?.packageManager || 'unknown'}"
   packages: ${JSON.stringify(fafData.context.dependencies?.packages?.map((p) => p.name) || [])}
 
 # End Chrome Extension Extraction
@@ -111,24 +98,25 @@ dependencies:
 
   /**
    * Generate filename with optional project folder and timestamp
+   * With project name: creates folder structure (my-project/my-project_2025-10-28.faf.txt)
+   * Without project name: direct filename (react_2025-10-28.faf.txt)
    */
-  private static generateFilename(fafData: FAFFile, projectFolder: string | null = null): string {
+  private static generateFilename(fafData: FAFFile, projectName: string | null = null): string {
     const timestamp = new Date().toISOString().split('T')[0];
 
-    // If projectFolder is provided, use it for both folder AND filename
-    if (projectFolder && projectFolder.trim()) {
-      const safeFolderName = projectFolder.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
+    // If projectName is provided, create folder structure
+    if (projectName && projectName.trim()) {
+      const safeFolderName = projectName.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
       const filename = `${safeFolderName}_${timestamp}.faf.txt`;
-      return `${safeFolderName}/${filename}`;
+      return `${safeFolderName}/${filename}`; // Folder path for Chrome Downloads API
     }
 
-    // Fallback: extract name from repo URL
+    // Fallback: extract name from repo URL (no folder)
     const extractedName = DownloadsManager.extractProjectName(fafData)
       .replace(/[^a-zA-Z0-9-_]/g, '_')
       .toLowerCase();
 
-    const filename = `${extractedName}_${timestamp}.faf.txt`;
-    return filename;
+    return `${extractedName}_${timestamp}.faf.txt`;
   }
 
   /**

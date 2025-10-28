@@ -54,43 +54,121 @@ async function handleExtract() {
       throw new Error('No active tab found');
     }
 
-    // Send message to content script with proper message format
+    // Championship-grade content script injection with readiness verification
+    // MUST work first time, every time - no refresh required
+
+    // Helper: Check if content script is ready
+    async function isContentScriptReady(tabId) {
+      try {
+        const pingResponse = await chrome.tabs.sendMessage(tabId, {
+          type: 'PING',
+          timestamp: Date.now(),
+          source: 'popup'
+        });
+        return pingResponse?.type === 'PONG';
+      } catch {
+        return false;
+      }
+    }
+
+    // Step 1: Check if already loaded
+    let scriptReady = await isContentScriptReady(activeTab.id);
+    console.log('Content script ready check:', scriptReady);
+
+    // Step 2: If not ready, inject and wait
+    if (!scriptReady) {
+      console.log('Injecting content script...');
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          files: ['content.js'],
+        });
+
+        // Wait 1 second for script to fully initialize
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Verify it's now ready
+        scriptReady = await isContentScriptReady(activeTab.id);
+        console.log('After injection, script ready:', scriptReady);
+
+        if (!scriptReady) {
+          // One more try with longer delay
+          console.log('Not ready yet, waiting longer...');
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          scriptReady = await isContentScriptReady(activeTab.id);
+        }
+
+      } catch (injectErr) {
+        console.error('Content script injection failed:', injectErr);
+        // Don't throw yet - let auto-refresh try to fix it
+        scriptReady = false;
+      }
+    }
+
+    // Step 3: If still not ready, auto-refresh the tab and retry
+    if (!scriptReady) {
+      console.log('Script not ready - auto-refreshing tab...');
+
+      // Check if this is an unrecoverable page (chrome://, etc.)
+      if (activeTab.url?.startsWith('chrome://') ||
+          activeTab.url?.startsWith('chrome-extension://') ||
+          activeTab.url?.startsWith('edge://') ||
+          activeTab.url?.startsWith('about:')) {
+        throw new Error('Cannot grab from browser pages. Try a GitHub repo or website.');
+      }
+
+      try {
+        // Refresh the tab
+        await chrome.tabs.reload(activeTab.id);
+
+        // Wait for page to reload (3 seconds)
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Inject fresh
+        await chrome.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          files: ['content.js'],
+        });
+
+        // Wait for initialization
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        // Final check
+        scriptReady = await isContentScriptReady(activeTab.id);
+
+        if (!scriptReady) {
+          // One final retry with longer wait
+          console.log('Still not ready, one more try...');
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          scriptReady = await isContentScriptReady(activeTab.id);
+
+          if (!scriptReady) {
+            throw new Error('Page not responding. Try clicking GRAB again.');
+          }
+        }
+      } catch (refreshErr) {
+        console.error('Auto-refresh failed:', refreshErr);
+        // Check if it's a permissions issue
+        if (refreshErr.message?.includes('Cannot access')) {
+          throw new Error('Cannot access this page. Try a public website.');
+        }
+        throw new Error('Auto-refresh failed. Try clicking GRAB again.');
+      }
+    }
+
+    // Step 4: Send extraction message (script is confirmed ready)
     const message = {
       type: 'EXTRACT_CONTEXT',
       timestamp: Date.now(),
       source: 'popup',
     };
 
-    // First, always try to inject the content script to ensure it's loaded
-    // This handles cases where manifest injection failed or page was already loaded
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        files: ['content.js'],
-      });
-
-      // Small delay to ensure script initializes
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } catch (injectErr) {
-      // Injection might fail if script is already injected, that's okay
-      console.log('Content script injection attempted:', injectErr);
-    }
-
-    // Now try to send the message
     let response;
     try {
       response = await chrome.tabs.sendMessage(activeTab.id, message);
-    } catch (_err) {
-      // If still failing, try one more time with a longer delay
-      console.log('First message failed, retrying with delay...');
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      try {
-        response = await chrome.tabs.sendMessage(activeTab.id, message);
-      } catch (finalErr) {
-        console.error('All communication attempts failed:', finalErr);
-        throw new Error('Unable to communicate with page. Please refresh and try again.');
-      }
+    } catch (err) {
+      console.error('Extraction message failed:', err);
+      throw new Error('Extraction failed. Please try again.');
     }
 
     if (response?.success) {
@@ -102,7 +180,6 @@ async function handleExtract() {
       // Track success
       telemetry.track('extraction_complete', {
         platform: response.faf?.context?.platform || 'unknown',
-        score: response.faf?.score || 0,
         fileCount: response.faf?.context?.structure?.files?.length || 0,
         duration: Date.now() - performance.now(),
       });
@@ -128,13 +205,14 @@ async function handleCopy() {
   if (!lastExtraction?.success) return;
 
   try {
-    const fafContent = JSON.stringify(lastExtraction.faf, null, 2);
-    await navigator.clipboard.writeText(fafContent);
+    // Use the same formatted content as Download (Dream Ticket format)
+    const brandedContent = DownloadsManager.generateBrandedFafContent(lastExtraction.faf);
+    await navigator.clipboard.writeText(brandedContent);
 
     // Track copy action
     telemetry.track('user_action', {
       action: 'copy_to_clipboard',
-      size: fafContent.length,
+      size: brandedContent.length,
     });
 
     // Show temporary success message
@@ -143,7 +221,7 @@ async function handleCopy() {
     if (button) {
       button.textContent = '✓ Copied!';
       setTimeout(() => {
-        button.textContent = originalText || 'Copy FAF';
+        button.textContent = originalText || '📋 Copy';
       }, 2000);
     }
   } catch (_err) {
@@ -153,7 +231,10 @@ async function handleCopy() {
 
 // Handle download action
 async function handleDownload() {
-  if (!lastExtraction?.faf) return;
+  if (!lastExtraction?.faf) {
+    error = 'No extraction data available. Try GRAB first.';
+    return;
+  }
 
   try {
     await DownloadsManager.downloadFafFile(lastExtraction.faf, projectName.trim() || null);
@@ -162,7 +243,6 @@ async function handleDownload() {
     telemetry.track('user_action', {
       action: 'download_faf_file',
       platform: lastExtraction.faf.context?.platform,
-      score: lastExtraction.faf.score,
     });
 
     // Show temporary success message
@@ -174,8 +254,9 @@ async function handleDownload() {
         button.textContent = originalText || '⬇️ Download';
       }, 2000);
     }
-  } catch (_err) {
-    error = 'Failed to download FAF file';
+  } catch (err) {
+    console.error('Download failed:', err);
+    error = `Failed to download FAF file: ${err instanceof Error ? err.message : 'Unknown error'}`;
   }
 }
 
@@ -193,11 +274,11 @@ function getGrabMessage(extraction) {
 
   // Power Grab: multiple files (5+) OR lots of lines (1000+)
   if (files >= 5 || lines >= 1000) {
-    return "⚡ Power Grab! Congrats!";
+    return "⚡ Power Grab!";
   }
 
   // Standard Grab
-  return "✅ Grab Successful";
+  return "🟢 Ready!";
 }
 </script>
 
@@ -205,9 +286,9 @@ function getGrabMessage(extraction) {
   <header>
     <div class="logo">
       <span class="emoji">⚡</span>
-      <h1>FAF - Fast AF</h1>
+      <h1>Stack Grabber</h1>
     </div>
-    <div class="tagline">Instant stack grabber - No scoring, just extraction</div>
+    <div class="tagline">The ColorZilla for stacks</div>
   </header>
 
   <main>
@@ -253,7 +334,7 @@ function getGrabMessage(extraction) {
         </div>
 
         <div class="project-name-section">
-          <label for="project-name">📁 Project folder name (optional):</label>
+          <label for="project-name">📁 Project name (optional):</label>
           <input
             type="text"
             id="project-name"
@@ -262,12 +343,12 @@ function getGrabMessage(extraction) {
             class="project-name-input"
             on:keydown={(e) => e.key === 'Enter' && handleDownload()}
           />
-          <div class="hint-text">Creates a folder for your new project</div>
+          <div class="hint-text">Creates folder in Downloads (leave empty for direct download)</div>
         </div>
 
         <div class="action-buttons">
           <button class="copy-button" on:click={handleCopy}>
-            📋 Copy FAF
+            📋 Copy
           </button>
           <button class="download-button" on:click={handleDownload}>
             ⬇️ Download
@@ -278,7 +359,7 @@ function getGrabMessage(extraction) {
       <div class="empty-state">
         <div class="empty-icon">🚀</div>
         <p>Ready to grab this stack</p>
-        <p class="hint">Click below to extract files and metadata</p>
+        <p class="hint">Click GRAB to instantly get the lowdown</p>
       </div>
     {/if}
 
@@ -299,10 +380,10 @@ function getGrabMessage(extraction) {
 
   <footer>
     <a href="https://github.com/Wolfe-Jam/faf-chrome-extension" target="_blank">
-      v1.0.5
+      v1.6.0
     </a>
     <span class="separator">•</span>
-    <span class="tagline-footer">Fast AI Context</span>
+    <span class="tagline-footer">Instantly get the lowdown</span>
   </footer>
 </div>
 

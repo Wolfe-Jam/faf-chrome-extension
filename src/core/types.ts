@@ -27,36 +27,8 @@ export const BRAND_COLORS = {
   black: '#0A0A0A',
 } as const;
 
-export const CONFIDENCE_LEVELS = ['VERY_HIGH', 'HIGH', 'GOOD', 'MODERATE', 'LOW'] as const;
-export type ConfidenceLevel = (typeof CONFIDENCE_LEVELS)[number];
-
-export interface BadgeColorConfig {
-  readonly bg: string;
-  readonly text: string;
-}
-
-export const BADGE_COLORS: Record<ConfidenceLevel, BadgeColorConfig> = {
-  VERY_HIGH: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },
-  HIGH: { bg: BRAND_COLORS.orange, text: BRAND_COLORS.cream },
-  GOOD: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
-  MODERATE: { bg: BRAND_COLORS.cyan, text: BRAND_COLORS.black },
-  LOW: { bg: BRAND_COLORS.black, text: BRAND_COLORS.orange },
-} as const;
-
-export type Score = number & { readonly __brand: 'Score' };
-
-export function createScore(value: number): Score {
-  const clamped = Math.min(100, Math.max(0, Math.round(value)));
-  return clamped as Score;
-}
-
-export function getScoreValue(score: Score): number {
-  return score as number;
-}
-
 export interface PlatformDetection {
   readonly platform: Platform;
-  readonly baseScore: number;
   readonly features: readonly string[];
 }
 
@@ -125,7 +97,6 @@ export interface ExtractionMetadata {
 
 export interface CodeContext {
   readonly platform: Platform;
-  readonly score: Score;
   readonly structure: ProjectStructure;
   readonly dependencies: Dependencies;
   readonly environment: Environment;
@@ -135,7 +106,6 @@ export interface CodeContext {
 export interface FAFFile {
   readonly version: string;
   readonly generated: string;
-  readonly score: Score;
   readonly context: CodeContext;
   readonly summary: string;
   readonly ai_instructions: string;
@@ -187,10 +157,7 @@ export interface CopyToClipboardMessage extends BaseMessage {
   readonly payload: FAFFile;
 }
 
-export interface UpdateBadgeMessage extends BaseMessage {
-  readonly type: 'UPDATE_BADGE';
-  readonly payload: { readonly score: Score };
-}
+// UpdateBadgeMessage removed - no longer using badge scoring
 
 export interface ErrorMessage extends BaseMessage {
   readonly type: 'ERROR';
@@ -222,23 +189,7 @@ export function isValidPlatform(value: string): value is Platform {
   return PLATFORMS.includes(value as Platform);
 }
 
-export function isValidScore(value: number): value is Score {
-  return Number.isInteger(value) && value >= 0 && value <= 100;
-}
-
-export function getConfidenceLevel(score: Score): ConfidenceLevel {
-  const value = getScoreValue(score);
-  if (value >= 90) return 'VERY_HIGH';
-  if (value >= 80) return 'HIGH';
-  if (value >= 70) return 'GOOD';
-  if (value >= 60) return 'MODERATE';
-  return 'LOW';
-}
-
-export function getBadgeColors(score: Score): BadgeColorConfig {
-  const confidence = getConfidenceLevel(score);
-  return BADGE_COLORS[confidence];
-}
+// Score validation removed - no longer scoring extractions
 
 export interface FafData {
   readonly project?: {

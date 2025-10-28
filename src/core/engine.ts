@@ -35,7 +35,7 @@ export interface ExtractionOptions {
 }
 
 export const DEFAULT_OPTIONS: ExtractionOptions = {
-  timeout: 15000, // 15 second timeout for complex GitHub repos
+  timeout: 30000, // 30 second timeout for complex GitHub repos (non-blocking metadata)
   includeContent: true,
   maxFileSize: 100_000, // 100KB per file
   maxFiles: 50,
@@ -97,7 +97,6 @@ export class FAFEngine {
           // Track successful extraction
           telemetry.trackExtraction('complete', {
             platform: result.context.platform,
-            score: result.score,
             duration: result.context.metadata.extractionTime,
             fileCount: result.context.structure.totalFiles,
           });
@@ -107,7 +106,7 @@ export class FAFEngine {
         {
           operationId: 'faf_extraction',
           retryConfig: {
-            maxAttempts: 2,
+            maxAttempts: 1, // No retries - just one 30s attempt
             baseDelay: 100,
             maxDelay: 500,
           },
@@ -172,21 +171,13 @@ export class FAFEngine {
       ]);
 
       // Create preliminary context for scoring
-      const preliminaryContext = {
+      // Build complete context (no scoring - this is an extraction tool)
+      const context: CodeContext = {
         platform: platform,
         structure,
         dependencies,
         environment,
         metadata: this.createMetadata(),
-      };
-
-      // Calculate final score using browser-compatible FAF engine
-      const score = await browserFafEngine.scoreContext(preliminaryContext as CodeContext);
-
-      // Build complete context
-      const context: CodeContext = {
-        ...preliminaryContext,
-        score,
       };
 
       // Generate FAF file
@@ -490,7 +481,6 @@ export class FAFEngine {
     return {
       version: '1.0.0',
       generated: new Date().toISOString(),
-      score: context.score,
       context,
       summary,
       ai_instructions: aiInstructions,
@@ -504,11 +494,10 @@ export class FAFEngine {
    * Generate human-readable summary
    */
   private generateSummary(context: CodeContext): string {
-    const score = context.score as number;
     const files = context.structure.totalFiles;
     const lines = context.structure.totalLines;
 
-    let summary = `${context.platform} project with ${score}% context confidence.`;
+    let summary = `${context.platform} project extracted.`;
 
     if (files > 0) {
       summary += ` Contains ${files} files (${lines} lines total).`;
@@ -525,24 +514,17 @@ export class FAFEngine {
    * Generate AI-specific instructions
    */
   private generateAIInstructions(context: CodeContext): string {
-    const score = context.score as number;
     const platform = context.platform;
+    const files = context.structure.totalFiles;
 
-    let instructions = `Context extracted from ${platform} with ${score}% confidence. `;
+    let instructions = `Context extracted from ${platform}. `;
 
-    if (score >= 80) {
-      instructions += 'High confidence - Full project context available. ';
-      instructions +=
-        'You have access to complete file structure, dependencies, and configuration. ';
-      instructions += 'Provide detailed, project-specific assistance.';
-    } else if (score >= 50) {
-      instructions += 'Medium confidence - Partial context available. ';
-      instructions += 'Basic project information is present but some details may be incomplete. ';
-      instructions += 'Ask for clarification on specific implementation details if needed.';
+    if (files > 0) {
+      instructions += `Includes ${files} files with complete structure, dependencies, and configuration data. `;
+      instructions += 'Use this context to understand the project architecture and provide specific assistance.';
     } else {
-      instructions += 'Low confidence - Limited context available. ';
-      instructions += 'Only basic page information extracted. ';
-      instructions += 'Request additional context or code snippets for better assistance.';
+      instructions += 'Basic project information extracted. ';
+      instructions += 'Request additional context or specific files if needed for detailed assistance.';
     }
 
     return instructions;
