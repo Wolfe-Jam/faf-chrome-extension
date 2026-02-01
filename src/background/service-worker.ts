@@ -398,7 +398,221 @@ class ServiceWorkerManager {
         .catch((error) => {
           console.error('❌ Badge initialization failed:', error);
         });
+
+      // Create context menu for Gemini
+      this.setupGeminiContextMenu();
     });
+  }
+
+  /**
+   * Set up context menu for Gemini - "Save to .faf"
+   */
+  private setupGeminiContextMenu(): void {
+    // Remove existing menu items first to avoid duplicates
+    chrome.contextMenus.removeAll(() => {
+      // Create parent menu
+      chrome.contextMenus.create({
+        id: 'faf-gemini-menu',
+        title: '⚡️ FAF Context',
+        contexts: ['selection', 'page'],
+        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
+      });
+
+      // Save selection to .faf
+      chrome.contextMenus.create({
+        id: 'faf-save-selection',
+        parentId: 'faf-gemini-menu',
+        title: 'Save selection to .faf',
+        contexts: ['selection'],
+        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
+      });
+
+      // Initialize FAF Context (page-level)
+      chrome.contextMenus.create({
+        id: 'faf-init-context',
+        parentId: 'faf-gemini-menu',
+        title: 'Initialize FAF Context',
+        contexts: ['page'],
+        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
+      });
+
+      // Copy as .faf YAML
+      chrome.contextMenus.create({
+        id: 'faf-copy-yaml',
+        parentId: 'faf-gemini-menu',
+        title: 'Copy as .faf YAML',
+        contexts: ['selection'],
+        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
+      });
+
+      console.log('✅ Gemini context menu created');
+    });
+
+    // Handle context menu clicks
+    chrome.contextMenus.onClicked.addListener((info, tab) => {
+      this.handleContextMenuClick(info, tab).catch((error) => {
+        console.error('❌ Context menu handler error:', error);
+      });
+    });
+  }
+
+  /**
+   * Handle context menu click actions
+   */
+  private async handleContextMenuClick(
+    info: chrome.contextMenus.OnClickData,
+    tab?: chrome.tabs.Tab
+  ): Promise<void> {
+    const menuItemId = info.menuItemId;
+    const selectionText = info.selectionText || '';
+
+    console.log(`📋 Context menu clicked: ${menuItemId}`);
+
+    // Track context menu usage
+    telemetry.track('user_action', {
+      action: 'context_menu_click',
+      menuItemId: String(menuItemId),
+      hasSelection: !!selectionText,
+      url: tab?.url || 'unknown',
+    });
+
+    switch (menuItemId) {
+      case 'faf-save-selection':
+        await this.handleSaveSelection(selectionText, tab);
+        break;
+      case 'faf-init-context':
+        await this.handleInitContext(tab);
+        break;
+      case 'faf-copy-yaml':
+        await this.handleCopyAsYaml(selectionText, tab);
+        break;
+    }
+  }
+
+  /**
+   * Handle "Save selection to .faf" action
+   */
+  private async handleSaveSelection(text: string, tab?: chrome.tabs.Tab): Promise<void> {
+    if (!text.trim()) {
+      await this.showErrorNotification('No text selected');
+      return;
+    }
+
+    // Format as FAF snippet
+    const timestamp = new Date().toISOString();
+    const source = tab?.url || 'gemini.google.com';
+    const fafSnippet = `# Captured from Gemini - ${timestamp}
+# Source: ${source}
+
+gemini_context:
+  captured_at: "${timestamp}"
+  source: "${source}"
+  content: |
+${text.split('\n').map((line) => `    ${line}`).join('\n')}
+`;
+
+    // Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(fafSnippet);
+      await ChromeNotifications.create(
+        'FAF - Saved to Clipboard! ⚡️',
+        'Selection formatted as .faf YAML and copied',
+        'icons/social-logo-128.png'
+      );
+    } catch (error) {
+      console.error('❌ Clipboard write failed:', error);
+      // Fallback: send to content script
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: fafSnippet },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
+    }
+  }
+
+  /**
+   * Handle "Initialize FAF Context" action
+   */
+  private async handleInitContext(tab?: chrome.tabs.Tab): Promise<void> {
+    const timestamp = new Date().toISOString();
+    const fafInit = `# FAF Context initialized from Gemini
+# ${timestamp}
+
+project:
+  name: "gemini-session"
+  goal: "AI-assisted development session"
+  main_language: "unknown"
+
+gemini:
+  session_started: "${timestamp}"
+  mode: "development"
+`;
+
+    try {
+      await navigator.clipboard.writeText(fafInit);
+      await ChromeNotifications.create(
+        'FAF - Context Initialized! ⚡️',
+        'FAF template copied - paste into project.faf',
+        'icons/social-logo-128.png'
+      );
+    } catch (error) {
+      console.error('❌ Init context failed:', error);
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: fafInit },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
+    }
+  }
+
+  /**
+   * Handle "Copy as .faf YAML" action
+   */
+  private async handleCopyAsYaml(text: string, tab?: chrome.tabs.Tab): Promise<void> {
+    if (!text.trim()) {
+      await this.showErrorNotification('No text selected');
+      return;
+    }
+
+    // Detect if it looks like code
+    const isCode = text.includes('{') || text.includes('function') || text.includes('import') ||
+                   text.includes('const ') || text.includes('def ') || text.includes('class ');
+
+    const yamlContent = isCode
+      ? `code_snippet:
+  language: "auto-detect"
+  content: |
+${text.split('\n').map((line) => `    ${line}`).join('\n')}
+`
+      : `notes:
+  content: |
+${text.split('\n').map((line) => `    ${line}`).join('\n')}
+`;
+
+    try {
+      await navigator.clipboard.writeText(yamlContent);
+      await ChromeNotifications.create(
+        'FAF - Copied as YAML! ⚡️',
+        isCode ? 'Code formatted as .faf YAML' : 'Text formatted as .faf YAML',
+        'icons/social-logo-128.png'
+      );
+    } catch (error) {
+      console.error('❌ Copy as YAML failed:', error);
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: yamlContent },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
+    }
   }
 
   /**
