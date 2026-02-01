@@ -380,7 +380,7 @@ function getGrabMessage(extraction) {
 
   <footer>
     <a href="https://github.com/Wolfe-Jam/faf-chrome-extension" target="_blank">
-      v1.6.0
+      v1.7.0
     </a>
     <span class="separator">•</span>
     <span class="tagline-footer">Instantly get the lowdown</span>
