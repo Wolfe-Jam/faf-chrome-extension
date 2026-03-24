@@ -222,6 +222,8 @@ FAF is engineered for speed:
 - [ ] Multi-language implementations
 - [ ] IDE plugin ecosystem
 
+If `FAF Chrome Extension` has been useful, consider starring the repo — it helps others find it.
+
 ## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

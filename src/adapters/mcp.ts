@@ -4,7 +4,7 @@
  */
 
 import { FAFError, FAFErrorCode } from '@/core/errors';
-import type { CodeContext, FileInfo } from '@/core/types';
+import type { CodeContext } from '@/core/types';
 
 export interface MCPResponse {
   jsonrpc: '2.0';
@@ -57,7 +57,7 @@ export class MCPAdapter {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `Failed to list MCP tools: ${response.error.message}`,
-        { mcpError: response.error }
+        { technicalDetails: JSON.stringify(response.error) }
       );
     }
     return response.result?.tools?.map((tool: any) => tool.name) || [];
@@ -136,7 +136,7 @@ export class MCPAdapter {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `MCP tool '${name}' failed: ${response.error.message}`,
-        { tool: name, args, mcpError: response.error }
+        { technicalDetails: `tool=${name} error=${JSON.stringify(response.error)}` }
       );
     }
 
@@ -168,7 +168,7 @@ export class MCPAdapter {
         throw new FAFError(
           FAFErrorCode.NETWORK_ERROR,
           `MCP HTTP error: ${response.status} ${response.statusText}`,
-          { status: response.status, url: response.url }
+          { technicalDetails: `status=${response.status} url=${response.url}` }
         );
       }
 
@@ -189,7 +189,7 @@ export class MCPAdapter {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `MCP request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { method, params, originalError: error }
+        { technicalDetails: `method=${method}`, cause: error instanceof Error ? error : undefined }
       );
     }
   }
@@ -264,7 +264,7 @@ export class MCPEnhancedContext {
   /**
    * Sync processed context with local FAF system
    */
-  async syncToLocal(context: CodeContext): Promise<boolean> {
+  async syncToLocal(_context: CodeContext): Promise<boolean> {
     try {
       if (!await this.mcp.isAvailable()) {
         return false;

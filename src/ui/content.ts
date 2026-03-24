@@ -122,6 +122,17 @@ class ContentScriptManager {
             });
           return true; // Async response
 
+        case 'COPY_TO_CLIPBOARD':
+          this.handleCopyToClipboard((message as any).payload?.text || '')
+            .then(() => sendResponse({ success: true }))
+            .catch((error) => {
+              sendResponse({
+                success: false,
+                error: error instanceof Error ? error.message : 'Clipboard copy failed',
+              });
+            });
+          return true; // Async response
+
         default:
           sendResponse({ success: false, error: `Unknown message type: ${message.type}` });
           return true;
@@ -198,6 +209,55 @@ class ContentScriptManager {
     } finally {
       this.state.setExtracting(false);
     }
+  }
+
+  /**
+   * Handle clipboard copy from service worker (context menu)
+   */
+  private async handleCopyToClipboard(text: string): Promise<void> {
+    if (!text) {
+      throw new ContentScriptError('No text to copy', 'CLIPBOARD_FAILED');
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      this.showClipboardNotification('Copied to clipboard!');
+    } catch (error) {
+      // Fallback for older browsers or permission issues
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      this.showClipboardNotification('Copied to clipboard!');
+    }
+  }
+
+  /**
+   * Show clipboard notification
+   */
+  private showClipboardNotification(message: string): void {
+    const notification = document.createElement('div');
+    notification.innerHTML = `<span style="margin-right: 8px;">⚡</span>${message}`;
+    Object.assign(notification.style, {
+      position: 'fixed',
+      top: '20px',
+      right: '20px',
+      background: 'linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%)',
+      color: '#ffffff',
+      padding: '12px 20px',
+      borderRadius: '8px',
+      fontFamily: 'system-ui, sans-serif',
+      fontSize: '14px',
+      fontWeight: '600',
+      zIndex: '2147483647',
+      boxShadow: '0 4px 12px rgba(255, 107, 53, 0.4)',
+    });
+    document.body.appendChild(notification);
+    setTimeout(() => notification.remove(), 2000);
   }
 
   /**

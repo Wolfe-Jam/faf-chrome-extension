@@ -59,8 +59,7 @@
         "noRedeclare": "error",
         "noShadowRestrictedNames": "error",
         "noUnsafeNegation": "error",
-        "useGetterReturn": "error",
-        "noWith": "error"
+        "useGetterReturn": "error"
       },
       "complexity": {
         "noBannedTypes": "error",
