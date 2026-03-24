@@ -4,7 +4,7 @@
  */
 
 import { FAFError, FAFErrorCode } from '@/core/errors';
-import type { ExtractionResult, Message } from '@/core/types';
+import type { ExtractionResult, Message, Score } from '@/core/types';
 
 export interface ChromeTab {
   readonly id: number;
@@ -311,7 +311,7 @@ export class ChromeAction {
     });
   }
 
-  static async updateBadge(_score: unknown): Promise<void> {
+  static async updateBadge(score: Score): Promise<void> {
     // No badge display - keep it clean
     // Badge removed as this is an extraction tool, not a scoring tool
     await ChromeAction.setBadgeText('');

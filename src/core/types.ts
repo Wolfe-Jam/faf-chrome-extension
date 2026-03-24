@@ -112,7 +112,6 @@ export interface FAFFile {
   readonly checksum: string;
   readonly compressed: boolean;
   readonly size: number;
-  readonly score?: number;
 }
 
 export type ExtractionResult =

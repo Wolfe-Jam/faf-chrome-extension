@@ -321,7 +321,6 @@ class ServiceWorkerManager {
       this.setupInstallationHandling();
       this.setupCommandHandling();
       this.setupBadgeInitialization();
-      this.setupContextMenuClickHandler();
 
       console.log('🏎️ FAF Service Worker initialized successfully');
     } catch (error) {
@@ -419,47 +418,42 @@ class ServiceWorkerManager {
         documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
       });
 
-      // Download selection as .faf file
+      // Save selection to .faf
       chrome.contextMenus.create({
         id: 'faf-save-selection',
         parentId: 'faf-gemini-menu',
-        title: 'Download selection as .faf',
+        title: 'Save selection to .faf',
         contexts: ['selection'],
         documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
       });
 
-      // Copy selection as YAML (to clipboard)
-      chrome.contextMenus.create({
-        id: 'faf-copy-yaml',
-        parentId: 'faf-gemini-menu',
-        title: 'Copy as YAML',
-        contexts: ['selection'],
-        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
-      });
-
-      // Download FAF template
+      // Initialize FAF Context (page-level)
       chrome.contextMenus.create({
         id: 'faf-init-context',
         parentId: 'faf-gemini-menu',
-        title: 'Download FAF template',
+        title: 'Initialize FAF Context',
         contexts: ['page'],
+        documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
+      });
+
+      // Copy as .faf YAML
+      chrome.contextMenus.create({
+        id: 'faf-copy-yaml',
+        parentId: 'faf-gemini-menu',
+        title: 'Copy as .faf YAML',
+        contexts: ['selection'],
         documentUrlPatterns: ['https://gemini.google.com/*', 'https://aistudio.google.com/*'],
       });
 
       console.log('✅ Gemini context menu created');
     });
-  }
 
-  /**
-   * Set up context menu click handler (must run on every service worker start)
-   */
-  private setupContextMenuClickHandler(): void {
+    // Handle context menu clicks
     chrome.contextMenus.onClicked.addListener((info, tab) => {
       this.handleContextMenuClick(info, tab).catch((error) => {
         console.error('❌ Context menu handler error:', error);
       });
     });
-    console.log('✅ Context menu click handler attached');
   }
 
   /**
@@ -496,7 +490,7 @@ class ServiceWorkerManager {
   }
 
   /**
-   * Handle "Save selection to .faf" action - downloads a .faf file
+   * Handle "Save selection to .faf" action
    */
   private async handleSaveSelection(text: string, tab?: chrome.tabs.Tab): Promise<void> {
     if (!text.trim()) {
@@ -504,92 +498,76 @@ class ServiceWorkerManager {
       return;
     }
 
-    // Format as FAF file
+    // Format as FAF snippet
     const timestamp = new Date().toISOString();
-    const dateStr = new Date().toISOString().split('T')[0];
     const source = tab?.url || 'gemini.google.com';
-    const fafContent = `# Gemini Context Capture
-# Captured: ${timestamp}
+    const fafSnippet = `# Captured from Gemini - ${timestamp}
 # Source: ${source}
 
-gemini_capture:
-  timestamp: "${timestamp}"
+gemini_context:
+  captured_at: "${timestamp}"
   source: "${source}"
   content: |
 ${text.split('\n').map((line) => `    ${line}`).join('\n')}
 `;
 
-    // Download as .faf file using data URL (service workers can't use createObjectURL)
-    const base64Content = btoa(unescape(encodeURIComponent(fafContent)));
-    const dataUrl = `data:text/yaml;base64,${base64Content}`;
-    const filename = `gemini-capture-${dateStr}.faf`;
-
+    // Copy to clipboard
     try {
-      await chrome.downloads.download({
-        url: dataUrl,
-        filename: filename,
-        saveAs: false,
-      });
+      await navigator.clipboard.writeText(fafSnippet);
       await ChromeNotifications.create(
-        'FAF - Saved! ⚡️',
-        `Downloaded: ${filename}`,
+        'FAF - Saved to Clipboard! ⚡️',
+        'Selection formatted as .faf YAML and copied',
         'icons/social-logo-128.png'
       );
     } catch (error) {
-      console.error('❌ Download failed:', error);
-      await this.showErrorNotification('Download failed');
+      console.error('❌ Clipboard write failed:', error);
+      // Fallback: send to content script
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: fafSnippet },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
     }
   }
 
   /**
-   * Handle "Download FAF template" action - downloads a project.faf template
+   * Handle "Initialize FAF Context" action
    */
   private async handleInitContext(tab?: chrome.tabs.Tab): Promise<void> {
     const timestamp = new Date().toISOString();
-    const fafTemplate = `# Project FAF - AI Context Template
-# Created: ${timestamp}
-# Source: Gemini (${tab?.url || 'gemini.google.com'})
+    const fafInit = `# FAF Context initialized from Gemini
+# ${timestamp}
 
 project:
-  name: "my-project"
-  goal: "Describe your project goal here"
-  main_language: "typescript"
-
-stack:
-  frontend: ""
-  backend: ""
-  database: ""
-  hosting: ""
-
-human_context:
-  who: "Who uses this?"
-  what: "What problem does it solve?"
-  why: "Why does this project exist?"
+  name: "gemini-session"
+  goal: "AI-assisted development session"
+  main_language: "unknown"
 
 gemini:
   session_started: "${timestamp}"
-  notes: |
-    Add notes from your Gemini session here
+  mode: "development"
 `;
 
-    // Download as project.faf file using data URL (service workers can't use createObjectURL)
-    const base64Content = btoa(unescape(encodeURIComponent(fafTemplate)));
-    const dataUrl = `data:text/yaml;base64,${base64Content}`;
-
     try {
-      await chrome.downloads.download({
-        url: dataUrl,
-        filename: 'project.faf',
-        saveAs: true,  // Let user choose location
-      });
+      await navigator.clipboard.writeText(fafInit);
       await ChromeNotifications.create(
-        'FAF - Template Ready! ⚡️',
-        'Save project.faf to your project root',
+        'FAF - Context Initialized! ⚡️',
+        'FAF template copied - paste into project.faf',
         'icons/social-logo-128.png'
       );
     } catch (error) {
-      console.error('❌ Download failed:', error);
-      await this.showErrorNotification('Download failed');
+      console.error('❌ Init context failed:', error);
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: fafInit },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
     }
   }
 
@@ -617,16 +595,23 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
 ${text.split('\n').map((line) => `    ${line}`).join('\n')}
 `;
 
-    // Copy to clipboard via content script (clipboard API doesn't work in service workers)
-    if (tab?.id) {
-      await ChromeTabs.sendMessage(tab.id, {
-        type: 'COPY_TO_CLIPBOARD',
-        payload: { text: yamlContent },
-        timestamp: Date.now(),
-        source: 'service-worker',
-      });
-    } else {
-      await this.showErrorNotification('Cannot copy - no active tab');
+    try {
+      await navigator.clipboard.writeText(yamlContent);
+      await ChromeNotifications.create(
+        'FAF - Copied as YAML! ⚡️',
+        isCode ? 'Code formatted as .faf YAML' : 'Text formatted as .faf YAML',
+        'icons/social-logo-128.png'
+      );
+    } catch (error) {
+      console.error('❌ Copy as YAML failed:', error);
+      if (tab?.id) {
+        await ChromeTabs.sendMessage(tab.id, {
+          type: 'COPY_TO_CLIPBOARD',
+          payload: { text: yamlContent },
+          timestamp: Date.now(),
+          source: 'service-worker',
+        });
+      }
     }
   }
 

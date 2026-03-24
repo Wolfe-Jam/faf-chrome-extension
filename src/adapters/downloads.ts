@@ -162,6 +162,14 @@ dependencies:
   }
 
   /**
+   * Get unique programming languages from files
+   */
+  private static getUniqueLanguages(files: readonly FileInfo[]): string {
+    const languages = new Set(files.map((f) => f.language).filter(Boolean));
+    return JSON.stringify(Array.from(languages));
+  }
+
+  /**
    * Format files list for YAML output with content
    */
   private static formatFilesForYaml(files: readonly FileInfo[]): string {
