@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  NODE_VERSION: 18.x
+  NODE_VERSION: 20.x
 
 jobs:
   # Comprehensive security analysis
@@ -113,7 +113,7 @@ jobs:
           echo "Checking for inline scripts and unsafe practices..."
           
           # Check for inline scripts in HTML files
-          if find public -name "*.html" -exec grep -l "javascript:" {} \;; then
+          if find public -name "*.html" -exec grep -l "javascript:" {} \; 2>/dev/null | grep -q .; then
             echo "❌ Found inline javascript: URLs"
             exit 1
           fi
@@ -123,7 +123,7 @@ jobs:
           fi
           
           # Check for eval usage
-          if find src -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -exec grep -l "eval(" {} \;; then
+          if find src \( -name "*.tsx" -o -name "*.ts" -o -name "*.jsx" -o -name "*.js" \) -exec grep -l "eval(" {} \; 2>/dev/null | grep -q .; then
             echo "❌ Found eval() usage - not allowed in Chrome extensions"
             exit 1
           fi
