@@ -1,12 +1,9 @@
 name: 🛡️ Security Scanning
 
 on:
-  schedule:
-    # Run security scans daily at 2 AM UTC
-    - cron: '0 2 * * *'
-  push:
-    branches: [main]
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 env:
   NODE_VERSION: 20.x
