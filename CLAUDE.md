@@ -1,29 +1,43 @@
-# 🏎️ CLAUDE.md - 🚀 FAF - Fast AF AI Context Extraction Persistent Context & Intelligence
+<!-- faf: 🚀 FAF - Fast AF AI Context Extraction | TypeScript |  | Chrome Extension for FAF context extraction -->
+<!-- faf: claim=project.faf | family=FAF -->
 
-## PROJECT STATE: ACTIVE 🚀
-**Current Position:** FAF - Fast AF Context extraction for Chrome
-**Tyre Compound:** ULTRASOFT C5 (Maximum Performance)
+# CLAUDE.md — 🚀 FAF - Fast AF AI Context Extraction
 
----
+## What This Is
 
-## 🎨 CORE CONTEXT
+Chrome Extension for FAF context extraction
 
-### Project Identity
-- **Name:** 🚀 FAF - Fast AF AI Context Extraction
-- **Stack:** Svelte/TypeScript/Vite
-- **Quality:** F1-INSPIRED (Championship Performance)
+## Stack
 
-### Technical Architecture
-- **What Building:** FAF - Fast AF Context extraction for Chrome
-- **Main Language:** TypeScript
+- **Language:** TypeScript
+- **Frontend:** Svelte
+- **Css Framework:** slotignore
+- **Ui Library:** slotignore
+- **State Management:** Svelte stores
+- **Backend:** slotignore
+- **Runtime:** Chrome Extension (Manifest V3)
+- **Database:** slotignore
+- **Build:** Vite
+- **Package Manager:** npm
+- **Api Type:** REST
+- **Hosting:** slotignore
+- **Cicd:** GitHub Actions (typecheck, lint, build)
+- **Connection:** slotignore
 
-### 📊 Context Quality Status
-- **Overall Assessment:** Good
-- **Last Updated:** 2025-10-23
+## Context
+
+- **Who:** Frontend developers
+- **What:** universal problem every developer faces: **providing AI assistants with the right context**
+- **Why:** Developers re-explain their stack to every AI tool; one-click extraction hands any AI the right context instantly — 100% local, zero network
+- **Where:** Browser — injected on dev sites (GitHub, GitLab, StackBlitz, CodeSandbox)
+- **When:** Whenever a developer needs to give an AI assistant (Claude, Cursor, Gemini, Codex) a repo's full context
+- **How:** Browse to any repo or web editor, click to extract the stack, then download or copy a .faf.txt — human summary plus full AI-ready context
 
 ---
 
 ## 📦 Chrome Web Store Listing (v1.5.0)
+
+> Durable copy also lives in `CHROME-WEB-STORE-LISTING.md` (survives `faf sync`, which regenerates the sections above from `project.faf`).
 
 ### Name
 STACK Grabber ⚡️ .FAF - Fast AF
@@ -73,8 +87,4 @@ faf innit 🇬🇧
 
 ---
 
-**STATUS: BI-SYNC ACTIVE 🔗 - Synchronized with .faf context!**
-
-*Last Sync: 2025-09-26T12:07:07.779Z*
-*Sync Engine: F1-Inspired Software Engineering*
-*🏎️⚡️_championship_sync*
+*STATUS: BI-SYNC ACTIVE — 2026-06-04T22:22:28.651Z*
