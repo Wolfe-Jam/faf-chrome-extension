@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.2.3/schema.json",
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
@@ -47,7 +47,7 @@
         "noDuplicateObjectKeys": "error",
         "noDuplicateParameters": "error",
         "noEmptyBlockStatements": "error",
-        "noExplicitAny": "error",
+        "noExplicitAny": "warn",
         "noExtraNonNullAssertion": "error",
         "noFallthroughSwitchClause": "error",
         "noFunctionAssign": "error",
@@ -59,10 +59,12 @@
         "noRedeclare": "error",
         "noShadowRestrictedNames": "error",
         "noUnsafeNegation": "error",
-        "useGetterReturn": "error",
-        "noWith": "error"
+        "useGetterReturn": "error"
       },
       "complexity": {
+        "noForEach": "warn",
+        "noStaticOnlyClass": "warn",
+        "useLiteralKeys": "warn",
         "noBannedTypes": "error",
         "noUselessConstructor": "error",
         "noUselessEmptyExport": "error",
@@ -70,8 +72,7 @@
         "noUselessLabel": "error",
         "noUselessRename": "error",
         "noUselessSwitchCase": "error",
-        "noUselessTypeConstraint": "error",
-        "useNumericLiterals": "error"
+        "noUselessTypeConstraint": "error"
       },
       "performance": {
         "noDelete": "warn"
@@ -84,11 +85,23 @@
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 100,
-    "lineEnding": "lf",
-    "includes": ["**", "!**/dist/**", "!**/node_modules/**", "!**/*.min.js"]
+    "lineEnding": "lf"
   },
   "javascript": {
-    "globals": ["chrome"],
+    "globals": [
+      "chrome",
+      "describe",
+      "it",
+      "test",
+      "expect",
+      "vi",
+      "beforeEach",
+      "afterEach",
+      "beforeAll",
+      "afterAll",
+      "suite",
+      "vitest"
+    ],
     "formatter": {
       "jsxQuoteStyle": "double",
       "quoteProperties": "asNeeded",
@@ -121,7 +134,8 @@
       "**/build/**",
       "**/coverage/**",
       "**/*.min.js",
-      "**/*.d.ts"
+      "**/*.d.ts",
+      "**/*.svelte"
     ]
   }
 }

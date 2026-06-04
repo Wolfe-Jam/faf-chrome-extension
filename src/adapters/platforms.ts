@@ -105,7 +105,7 @@ export class PlatformDetector {
    * Get cached platform without triggering detection
    */
   getCached(): Platform | null {
-    return this.isCacheFresh() ? (this.cachedResult?.platform || null) : null;
+    return this.isCacheFresh() ? this.cachedResult?.platform || null : null;
   }
 
   private isCacheFresh(): boolean {
@@ -231,7 +231,7 @@ export class PlatformDetector {
     try {
       const platform = await this.detect();
 
-      let extractedData;
+      let extractedData: ExtractedData;
 
       switch (platform) {
         case 'monaco':
@@ -1071,28 +1071,6 @@ export class PlatformDetector {
   }
 
   /**
-   * Wait for element to appear in DOM (polling approach)
-   */
-  private async waitForElement(selector: string, timeout: number = 5000): Promise<Element | null> {
-    return new Promise((resolve) => {
-      // Check every 50ms for the element
-      const interval = setInterval(() => {
-        const element = document.querySelector(selector);
-        if (element) {
-          clearInterval(interval);
-          resolve(element);
-        }
-      }, 50);
-
-      // Stop checking after timeout
-      setTimeout(() => {
-        clearInterval(interval);
-        resolve(null);
-      }, timeout);
-    });
-  }
-
-  /**
    * Extract rich GitHub repository metadata for dev-useful context
    * NON-BLOCKING: Returns immediately with whatever is available
    * Updated 2025-10-28 to fix timeout issues
@@ -1103,8 +1081,14 @@ export class PlatformDetector {
 
     try {
       // Repository description - from meta tag (most reliable, usually immediate)
-      const descriptionMeta = document.querySelector('meta[name="description"]')?.getAttribute('content');
-      console.log('🔍 [DEBUG] Description meta:', descriptionMeta ? 'FOUND' : 'NOT FOUND', descriptionMeta);
+      const descriptionMeta = document
+        .querySelector('meta[name="description"]')
+        ?.getAttribute('content');
+      console.log(
+        '🔍 [DEBUG] Description meta:',
+        descriptionMeta ? 'FOUND' : 'NOT FOUND',
+        descriptionMeta
+      );
       if (descriptionMeta) {
         // Clean up "... - owner/repo" suffix
         const description = descriptionMeta.split(' - ')[0]?.trim();
@@ -1116,7 +1100,11 @@ export class PlatformDetector {
 
       // Stars count - Try immediately, don't wait
       const starsEl = document.querySelector('a[href*="/stargazers"]');
-      console.log('🔍 [DEBUG] Stars element:', starsEl ? 'FOUND' : 'NOT FOUND', starsEl?.textContent);
+      console.log(
+        '🔍 [DEBUG] Stars element:',
+        starsEl ? 'FOUND' : 'NOT FOUND',
+        starsEl?.textContent
+      );
       if (starsEl) {
         const starsText = starsEl.textContent?.trim().replace(/\s+/g, ' ');
         // Extract just the number (e.g., "152k stars" -> "152k")
@@ -1130,7 +1118,7 @@ export class PlatformDetector {
 
       // Topics/tags - Try immediately, don't wait
       const topics = Array.from(document.querySelectorAll('a[href^="/topics/"]'))
-        .map(el => el.textContent?.trim())
+        .map((el) => el.textContent?.trim())
         .filter(Boolean)
         .filter((topic, index, array) => array.indexOf(topic) === index); // deduplicate
       console.log('🔍 [DEBUG] Topics found:', topics.length, topics);
@@ -1144,7 +1132,7 @@ export class PlatformDetector {
         'a[href*="/blob/"][href*="LICENSE"]',
         'a[href*="/blob/"][href*="COPYING"]',
         '[data-testid*="license"]',
-        'h2:contains("License") + div a'
+        'h2:contains("License") + div a',
       ];
       for (const selector of licenseSelectors) {
         const licenseEl = document.querySelector(selector);
@@ -1161,7 +1149,7 @@ export class PlatformDetector {
       console.log('🔍 [DEBUG] Language links found:', languageLinks.length);
       if (languageLinks.length > 0) {
         const languages = languageLinks
-          .map(el => {
+          .map((el) => {
             const href = el.getAttribute('href') || '';
             const match = href.match(/search\?l=([^&]+)/);
             return match ? decodeURIComponent(match[1]) : null;
@@ -1185,7 +1173,11 @@ export class PlatformDetector {
 
       // Default branch - improved selector
       const branchButton = document.querySelector('[data-hotkey="w"]');
-      console.log('🔍 [DEBUG] Branch button:', branchButton ? 'FOUND' : 'NOT FOUND', branchButton?.textContent);
+      console.log(
+        '🔍 [DEBUG] Branch button:',
+        branchButton ? 'FOUND' : 'NOT FOUND',
+        branchButton?.textContent
+      );
       if (branchButton) {
         const branch = branchButton.textContent?.trim();
         if (branch && branch.length > 0 && branch.length < 50) {
@@ -1193,7 +1185,6 @@ export class PlatformDetector {
           console.log('🔍 [DEBUG] Added defaultBranch:', branch);
         }
       }
-
     } catch (error) {
       console.error('🚨 [DEBUG] ERROR in extractGitHubMetadata:', error);
       console.warn('Failed to extract some GitHub metadata:', error);

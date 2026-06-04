@@ -2,9 +2,9 @@
  * Svelte Stores - Global State Management for FAF Extension
  */
 
-import { derived, readable, writable } from 'svelte/store';
 import { ChromeStorageAPI } from '@/adapters/chrome';
 import type { ExtractionResult } from '@/core/types';
+import { derived, readable, writable } from 'svelte/store';
 
 // Core extraction state
 export const extractionStore = writable<ExtractionResult | null>(null);
@@ -15,10 +15,6 @@ export const errorStore = writable<string | null>(null);
 export const hasExtractionStore = derived(
   extractionStore,
   ($extraction) => $extraction?.success === true
-);
-
-export const extractionScoreStore = derived(extractionStore, ($extraction) =>
-  $extraction?.success ? $extraction.faf.score : 0
 );
 
 export const fileCountStore = derived(extractionStore, ($extraction) =>
@@ -101,7 +97,7 @@ export const performanceStore = readable(
     // Track popup load time
     const updateLoadTime = () => {
       const loadTime = performance.now() - startTime;
-      set((prev: { popupLoadTime: number; lastExtractionTime: number; averageExtractionTime: number }) => ({ ...prev, popupLoadTime: loadTime }));
+      set({ popupLoadTime: loadTime, lastExtractionTime: 0, averageExtractionTime: 0 });
     };
 
     // Update when DOM is ready

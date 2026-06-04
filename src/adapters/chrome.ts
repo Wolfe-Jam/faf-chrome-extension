@@ -4,7 +4,7 @@
  */
 
 import { FAFError, FAFErrorCode } from '@/core/errors';
-import type { ExtractionResult, Message, Score } from '@/core/types';
+import type { ExtractionResult, Message } from '@/core/types';
 
 export interface ChromeTab {
   readonly id: number;
@@ -311,7 +311,7 @@ export class ChromeAction {
     });
   }
 
-  static async updateBadge(score: Score): Promise<void> {
+  static async updateBadge(): Promise<void> {
     // No badge display - keep it clean
     // Badge removed as this is an extraction tool, not a scoring tool
     await ChromeAction.setBadgeText('');
@@ -322,11 +322,7 @@ export class ChromeAction {
  * Type-safe wrapper for Chrome notifications API
  */
 export class ChromeNotifications {
-  static async create(
-    title: string,
-    message: string,
-    iconUrl: string = 'icon128.png'
-  ): Promise<void> {
+  static async create(title: string, message: string, iconUrl = 'icon128.png'): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
         chrome.notifications.create(

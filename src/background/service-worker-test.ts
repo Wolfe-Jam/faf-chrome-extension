@@ -3,8 +3,8 @@
  * Comprehensive testing of all critical service worker functions
  */
 
-import { vi } from 'vitest';
 import type { Message } from '@/core/types';
+import { vi } from 'vitest';
 
 /**
  * Mock Chrome APIs for testing

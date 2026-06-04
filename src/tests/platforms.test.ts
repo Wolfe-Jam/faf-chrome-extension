@@ -2,8 +2,8 @@
  * Platform Detection Tests - Critical Platform Recognition Logic
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlatformDetector } from '@/adapters/platforms';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Platform Detection', () => {
   let detector: PlatformDetector;

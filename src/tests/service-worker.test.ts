@@ -70,7 +70,7 @@ describe('Service Worker Core Functions', () => {
 
       // Test error handling
       try {
-        const _tabs = await new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
           chrome.tabs.query({}, (result) => {
             if (chrome.runtime.lastError) {
               reject(new Error(chrome.runtime.lastError.message));
@@ -200,7 +200,7 @@ describe('Service Worker Core Functions', () => {
             message: 'Extraction failed',
             priority: 2,
           },
-          resolve
+          () => resolve()
         );
       });
 
