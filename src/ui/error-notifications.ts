@@ -105,7 +105,7 @@ export class ErrorNotificationService {
    */
   async showRecoverySuccess(
     operationId: string,
-    message: string = 'Issue resolved successfully!'
+    message = 'Issue resolved successfully!'
   ): Promise<void> {
     try {
       await ChromeNotifications.create('FAF - Recovered ✅', message, 'icons/success-128.png');
@@ -388,9 +388,8 @@ export async function handleErrorWithRecovery<T>(
         operationId: context.operationId,
         operationType: context.operationType,
         retryOperation: async () => {
-          const result = await operation();
+          await operation();
           await errorNotifications.showRecoverySuccess(context.operationId);
-          return result;
         },
       },
       notificationOptions

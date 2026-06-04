@@ -154,7 +154,7 @@ export interface ContextExtractedMessage extends BaseMessage {
 
 export interface CopyToClipboardMessage extends BaseMessage {
   readonly type: 'COPY_TO_CLIPBOARD';
-  readonly payload: FAFFile;
+  readonly payload: { readonly text: string };
 }
 
 // UpdateBadgeMessage removed - no longer using badge scoring
@@ -180,7 +180,6 @@ export type Message =
   | ExtractContextMessage
   | ContextExtractedMessage
   | CopyToClipboardMessage
-  | UpdateBadgeMessage
   | ErrorMessage
   | PingMessage
   | PongMessage;
@@ -192,33 +191,39 @@ export function isValidPlatform(value: string): value is Platform {
 // Score validation removed - no longer scoring extractions
 
 export interface FafData {
-  readonly project?: {
-    readonly name?: string | undefined;
-    readonly goal?: string | undefined;
-    readonly main_language?: string | undefined;
-  } | undefined;
-  readonly stack?: {
-    readonly frontend?: string | undefined;
-    readonly css_framework?: string | undefined;
-    readonly ui_library?: string | undefined;
-    readonly state_management?: string | undefined;
-    readonly backend?: string | undefined;
-    readonly runtime?: string | undefined;
-    readonly database?: string | undefined;
-    readonly build?: string | undefined;
-    readonly package_manager?: string | undefined;
-    readonly api_type?: string | undefined;
-    readonly hosting?: string | undefined;
-    readonly cicd?: string | undefined;
-  } | undefined;
-  readonly human_context?: {
-    readonly who?: string | undefined;
-    readonly what?: string | undefined;
-    readonly why?: string | undefined;
-    readonly where?: string | undefined;
-    readonly when?: string | undefined;
-    readonly how?: string | undefined;
-  } | undefined;
+  readonly project?:
+    | {
+        readonly name?: string | undefined;
+        readonly goal?: string | undefined;
+        readonly main_language?: string | undefined;
+      }
+    | undefined;
+  readonly stack?:
+    | {
+        readonly frontend?: string | undefined;
+        readonly css_framework?: string | undefined;
+        readonly ui_library?: string | undefined;
+        readonly state_management?: string | undefined;
+        readonly backend?: string | undefined;
+        readonly runtime?: string | undefined;
+        readonly database?: string | undefined;
+        readonly build?: string | undefined;
+        readonly package_manager?: string | undefined;
+        readonly api_type?: string | undefined;
+        readonly hosting?: string | undefined;
+        readonly cicd?: string | undefined;
+      }
+    | undefined;
+  readonly human_context?:
+    | {
+        readonly who?: string | undefined;
+        readonly what?: string | undefined;
+        readonly why?: string | undefined;
+        readonly where?: string | undefined;
+        readonly when?: string | undefined;
+        readonly how?: string | undefined;
+      }
+    | undefined;
   readonly ai_score?: number | string;
   readonly ai_scoring_system?: string;
   readonly ai_scoring_details?: {

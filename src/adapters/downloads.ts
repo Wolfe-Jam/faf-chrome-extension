@@ -28,7 +28,9 @@ export class DownloadsManager {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Failed to download FAF file:', error);
-      throw new Error(`Failed to save FAF file to Downloads: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to save FAF file to Downloads: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -46,7 +48,7 @@ export class DownloadsManager {
     const metadata = fafData.context.metadata || {};
 
     // Human-first summary at top - THE DREAM TICKET
-    let humanSummary = `# ========================================
+    const humanSummary = `# ========================================
 # STACK SUMMARY (Quick Reference)
 # ========================================
 
@@ -105,7 +107,7 @@ dependencies:
     const timestamp = new Date().toISOString().split('T')[0];
 
     // If projectName is provided, create folder structure
-    if (projectName && projectName.trim()) {
+    if (projectName?.trim()) {
       const safeFolderName = projectName.trim().replace(/[^a-zA-Z0-9-_]/g, '-');
       const filename = `${safeFolderName}_${timestamp}.faf.txt`;
       return `${safeFolderName}/${filename}`; // Folder path for Chrome Downloads API
@@ -162,14 +164,6 @@ dependencies:
   }
 
   /**
-   * Get unique programming languages from files
-   */
-  private static getUniqueLanguages(files: readonly FileInfo[]): string {
-    const languages = new Set(files.map((f) => f.language).filter(Boolean));
-    return JSON.stringify(Array.from(languages));
-  }
-
-  /**
    * Format files list for YAML output with content
    */
   private static formatFilesForYaml(files: readonly FileInfo[]): string {
@@ -178,7 +172,12 @@ dependencies:
     return files
       .slice(0, 20)
       .map((file) => {
-        const content = file.content ? `\n    content: |\n${file.content.split('\n').map(line => `      ${line}`).join('\n')}` : '';
+        const content = file.content
+          ? `\n    content: |\n${file.content
+              .split('\n')
+              .map((line) => `      ${line}`)
+              .join('\n')}`
+          : '';
         return `  - path: "${file.path}"
     language: "${file.language || 'unknown'}"
     lines: ${file.lines || 0}

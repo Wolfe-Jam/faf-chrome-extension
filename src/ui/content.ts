@@ -3,8 +3,8 @@
  */
 
 import { ChromeRuntime } from '@/adapters/chrome';
-import { FAFEngine } from '@/core/engine';
 import { PlatformDetector } from '@/adapters/platforms';
+import { FAFEngine } from '@/core/engine';
 import type { ExtractContextMessage, Message, MessageType } from '@/core/types';
 import { MESSAGE_TYPES } from '@/core/types';
 
@@ -175,8 +175,14 @@ class ContentScriptManager {
       return result;
     } catch (error) {
       console.error('🚨 [CONTENT SCRIPT] Catch block - error occurred:', error);
-      console.error('🚨 [CONTENT SCRIPT] Error details:', error instanceof Error ? error.message : error);
-      console.error('🚨 [CONTENT SCRIPT] Stack:', error instanceof Error ? error.stack : 'No stack');
+      console.error(
+        '🚨 [CONTENT SCRIPT] Error details:',
+        error instanceof Error ? error.message : error
+      );
+      console.error(
+        '🚨 [CONTENT SCRIPT] Stack:',
+        error instanceof Error ? error.stack : 'No stack'
+      );
 
       // Send error to background (don't await to prevent blocking)
       ChromeRuntime.sendMessage({

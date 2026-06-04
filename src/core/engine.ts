@@ -8,7 +8,7 @@ import {
   PlatformDetector,
   PlatformExtractors,
 } from '@/adapters/platforms';
-import { browserFafEngine, initializeBrowserFafEngine } from '@/core/browser-faf-engine';
+import { initializeBrowserFafEngine } from '@/core/browser-faf-engine';
 import { errorRecovery } from '@/core/error-recovery';
 import { FAFError, FAFErrorCode } from '@/core/errors';
 import { telemetry, trackPerformance } from '@/core/telemetry';
@@ -47,7 +47,7 @@ export const DEFAULT_OPTIONS: ExtractionOptions = {
 export class FAFEngine {
   private readonly options: ExtractionOptions;
 
-  private readonly startTime: number;
+  private startTime: number;
 
   constructor(options: ExtractionOptions = DEFAULT_OPTIONS) {
     this.options = options;
@@ -66,7 +66,7 @@ export class FAFEngine {
 
     return errorRecovery
       .withRecovery(
-        async () => {
+        async (): Promise<ExtractionResult> => {
           // Get platform quickly for early telemetry (will use cache if available)
           const earlyDetector = new PlatformDetector();
           const cachedPlatform = earlyDetector.getCached() || 'unknown';
@@ -119,9 +119,9 @@ export class FAFEngine {
             });
 
             return {
-              success: false,
+              success: false as const,
               error: 'Extraction failed - minimal context available',
-              code: 'FALLBACK_MODE' as const,
+              code: FAFErrorCode.EXTRACTION_FAILED,
             };
           },
           context: 'FAFEngine.extract',
@@ -153,13 +153,9 @@ export class FAFEngine {
     try {
       // Detect platform first (fastest operation) with telemetry
       const detector = new PlatformDetector();
-      const platform = await trackPerformance(
-        'platform_detection',
-        async () => {
-          return detector.detect();
-        },
-        50
-      ); // 50ms threshold for platform detection
+      const platform = await trackPerformance('platform_detection', async () => {
+        return detector.detect();
+      }); // 50ms threshold for platform detection
 
       telemetry.track('platform_detected', { platform });
 
@@ -186,7 +182,7 @@ export class FAFEngine {
       throw error instanceof FAFError
         ? error
         : new FAFError(FAFErrorCode.EXTRACTION_FAILED, 'Failed to perform context extraction', {
-            context: { error: error instanceof Error ? error.message : 'Unknown error' },
+            technicalDetails: error instanceof Error ? error.message : 'Unknown error',
           });
     }
   }
@@ -195,78 +191,56 @@ export class FAFEngine {
    * Extract project structure with error handling
    */
   private async extractStructureWithErrorHandling(platform: Platform): Promise<ProjectStructure> {
-    return trackPerformance(
-      'structure_extraction',
-      async () => {
-        try {
-          return await this.extractStructure(platform);
-        } catch (error) {
-          throw new FAFError(
-            FAFErrorCode.STRUCTURE_EXTRACTION_FAILED,
-            'Failed to extract project structure',
-            {
-              context: {
-                platform,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              },
-            }
-          );
-        }
-      },
-      100
-    );
+    return trackPerformance('structure_extraction', async () => {
+      try {
+        return await this.extractStructure(platform);
+      } catch (error) {
+        throw new FAFError(FAFErrorCode.EXTRACTION_FAILED, 'Failed to extract project structure', {
+          context: { platform },
+          technicalDetails: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    });
   }
 
   /**
    * Extract dependencies with error handling
    */
   private async extractDependenciesWithErrorHandling(platform: Platform): Promise<Dependencies> {
-    return trackPerformance(
-      'dependencies_extraction',
-      async () => {
-        try {
-          return await this.extractDependencies(platform);
-        } catch (error) {
-          throw new FAFError(
-            FAFErrorCode.DEPENDENCIES_EXTRACTION_FAILED,
-            'Failed to extract dependency information',
-            {
-              context: {
-                platform,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              },
-            }
-          );
-        }
-      },
-      50
-    );
+    return trackPerformance('dependencies_extraction', async () => {
+      try {
+        return await this.extractDependencies(platform);
+      } catch (error) {
+        throw new FAFError(
+          FAFErrorCode.EXTRACTION_FAILED,
+          'Failed to extract dependency information',
+          {
+            context: { platform },
+            technicalDetails: error instanceof Error ? error.message : 'Unknown error',
+          }
+        );
+      }
+    });
   }
 
   /**
    * Extract environment with error handling
    */
   private async extractEnvironmentWithErrorHandling(platform: Platform): Promise<Environment> {
-    return trackPerformance(
-      'environment_extraction',
-      async () => {
-        try {
-          return await this.extractEnvironment(platform);
-        } catch (error) {
-          throw new FAFError(
-            FAFErrorCode.ENVIRONMENT_EXTRACTION_FAILED,
-            'Failed to extract environment information',
-            {
-              context: {
-                platform,
-                error: error instanceof Error ? error.message : 'Unknown error',
-              },
-            }
-          );
-        }
-      },
-      30
-    );
+    return trackPerformance('environment_extraction', async () => {
+      try {
+        return await this.extractEnvironment(platform);
+      } catch (error) {
+        throw new FAFError(
+          FAFErrorCode.EXTRACTION_FAILED,
+          'Failed to extract environment information',
+          {
+            context: { platform },
+            technicalDetails: error instanceof Error ? error.message : 'Unknown error',
+          }
+        );
+      }
+    });
   }
 
   /**
@@ -521,10 +495,12 @@ export class FAFEngine {
 
     if (files > 0) {
       instructions += `Includes ${files} files with complete structure, dependencies, and configuration data. `;
-      instructions += 'Use this context to understand the project architecture and provide specific assistance.';
+      instructions +=
+        'Use this context to understand the project architecture and provide specific assistance.';
     } else {
       instructions += 'Basic project information extracted. ';
-      instructions += 'Request additional context or specific files if needed for detailed assistance.';
+      instructions +=
+        'Request additional context or specific files if needed for detailed assistance.';
     }
 
     return instructions;

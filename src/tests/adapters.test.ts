@@ -2,11 +2,11 @@
  * Chrome Adapter Tests - Type-safe API wrapper validation
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChromeAction, ChromeNotifications, ChromeStorageAPI, ChromeTabs } from '@/adapters/chrome';
 import { ClipboardError, ClipboardManager } from '@/adapters/clipboard';
 import { FAFError } from '@/core/errors';
-import type { FAFFile, Score } from '@/core/types';
+import type { FAFFile } from '@/core/types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('Chrome API Adapters', () => {
   beforeEach(() => {
@@ -56,7 +56,10 @@ describe('Chrome API Adapters', () => {
 
   describe('ChromeStorageAPI', () => {
     it('should store and retrieve data', async () => {
-      const testData = { lastExtraction: { success: true }, timestamp: Date.now() };
+      const testData = {
+        lastExtraction: { success: true as const, faf: {} as FAFFile },
+        timestamp: Date.now(),
+      };
 
       chrome.storage.local.set = vi.fn().mockImplementation((_data, callback) => {
         callback?.();
@@ -78,7 +81,7 @@ describe('Chrome API Adapters', () => {
         callback?.();
       });
 
-      await expect(ChromeStorageAPI.set({ test: 'data' })).rejects.toThrow(FAFError);
+      await expect(ChromeStorageAPI.set({ timestamp: Date.now() })).rejects.toThrow(FAFError);
     });
 
     it('should clear storage', async () => {
@@ -91,48 +94,14 @@ describe('Chrome API Adapters', () => {
   });
 
   describe('ChromeAction', () => {
-    it('should update badge with score', async () => {
-      const score = 85 as Score;
-
+    it('should clear the badge (extraction-only tool, no score)', async () => {
       chrome.action.setBadgeText = vi.fn().mockImplementation((_options, callback) => {
         callback?.();
       });
 
-      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((_options, callback) => {
-        callback?.();
-      });
+      await ChromeAction.updateBadge();
 
-      await ChromeAction.updateBadge(score);
-
-      expect(chrome.action.setBadgeText).toHaveBeenCalledWith(
-        { text: '85%' },
-        expect.any(Function)
-      );
-      expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith(
-        { color: '#FF6B35' },
-        expect.any(Function)
-      );
-    });
-
-    it('should use correct colors for different score ranges', async () => {
-      const testCases = [
-        { score: 90, expectedColor: '#FF6B35' }, // High - Orange
-        { score: 65, expectedColor: '#5CE1E6' }, // Medium - Cyan
-        { score: 30, expectedColor: '#0A0A0A' }, // Low - Black
-      ];
-
-      chrome.action.setBadgeBackgroundColor = vi.fn().mockImplementation((_options, callback) => {
-        callback?.();
-      });
-
-      for (const { score, expectedColor } of testCases) {
-        vi.clearAllMocks();
-        await ChromeAction.updateBadge(score as Score);
-        expect(chrome.action.setBadgeBackgroundColor).toHaveBeenCalledWith(
-          { color: expectedColor },
-          expect.any(Function)
-        );
-      }
+      expect(chrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' }, expect.any(Function));
     });
   });
 
@@ -165,10 +134,8 @@ describe('Clipboard Manager', () => {
     mockFAF = {
       version: '1.0.0',
       generated: new Date().toISOString(),
-      score: 85 as Score,
       context: {
         platform: 'github',
-        score: 85 as Score,
         structure: { files: [], directories: [], entryPoints: [], totalFiles: 0, totalLines: 0 },
         dependencies: {
           runtime: { language: 'TypeScript', version: '5.3.0', packageManager: 'npm' },
@@ -250,11 +217,6 @@ describe('Clipboard Manager', () => {
     it('should reject FAF without context', () => {
       const invalidFAF = { ...mockFAF, context: undefined };
       expect(() => ClipboardManager.validateFAFContent(invalidFAF as any)).toThrow(ClipboardError);
-    });
-
-    it('should reject invalid scores', () => {
-      const invalidFAF = { ...mockFAF, score: 150 as Score };
-      expect(() => ClipboardManager.validateFAFContent(invalidFAF)).toThrow(ClipboardError);
     });
   });
 

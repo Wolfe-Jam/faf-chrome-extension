@@ -4,7 +4,7 @@
  */
 
 import { FAFError, FAFErrorCode } from '@/core/errors';
-import type { CodeContext, FileInfo } from '@/core/types';
+import type { CodeContext } from '@/core/types';
 
 export interface MCPResponse {
   jsonrpc: '2.0';
@@ -27,7 +27,7 @@ export interface MCPRequest {
 export class MCPAdapter {
   private readonly baseUrl = 'http://localhost:3457';
   private requestId = 1;
-  
+
   constructor(private readonly debug = false) {}
 
   /**
@@ -37,7 +37,7 @@ export class MCPAdapter {
     try {
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
-        signal: AbortSignal.timeout(2000) // 2s timeout
+        signal: AbortSignal.timeout(2000), // 2s timeout
       });
       return response.ok;
     } catch (error) {
@@ -57,7 +57,7 @@ export class MCPAdapter {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `Failed to list MCP tools: ${response.error.message}`,
-        { mcpError: response.error }
+        { technicalDetails: JSON.stringify(response.error) }
       );
     }
     return response.result?.tools?.map((tool: any) => tool.name) || [];
@@ -129,14 +129,16 @@ export class MCPAdapter {
   async callTool(name: string, args: Record<string, any>): Promise<any> {
     const response = await this.sendMCPRequest('tools/call', {
       name,
-      arguments: args
+      arguments: args,
     });
 
     if (response.error) {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `MCP tool '${name}' failed: ${response.error.message}`,
-        { tool: name, args, mcpError: response.error }
+        {
+          technicalDetails: `tool=${name} args=${JSON.stringify(args)} error=${JSON.stringify(response.error)}`,
+        }
       );
     }
 
@@ -151,7 +153,7 @@ export class MCPAdapter {
       jsonrpc: '2.0',
       id: this.requestId++,
       method,
-      params
+      params,
     };
 
     try {
@@ -161,26 +163,25 @@ export class MCPAdapter {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(request),
-        signal: AbortSignal.timeout(30000) // 30s timeout for tool calls
+        signal: AbortSignal.timeout(30000), // 30s timeout for tool calls
       });
 
       if (!response.ok) {
         throw new FAFError(
           FAFErrorCode.NETWORK_ERROR,
           `MCP HTTP error: ${response.status} ${response.statusText}`,
-          { status: response.status, url: response.url }
+          { technicalDetails: `status=${response.status} url=${response.url}` }
         );
       }
 
       const mcpResponse: MCPResponse = await response.json();
-      
+
       if (this.debug) {
         console.debug('[FAF MCP] Request:', request);
         console.debug('[FAF MCP] Response:', mcpResponse);
       }
 
       return mcpResponse;
-
     } catch (error) {
       if (error instanceof FAFError) {
         throw error;
@@ -189,7 +190,10 @@ export class MCPAdapter {
       throw new FAFError(
         FAFErrorCode.MCP_ERROR,
         `MCP request failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        { method, params, originalError: error }
+        {
+          cause: error instanceof Error ? error : undefined,
+          technicalDetails: `method=${method} params=${JSON.stringify(params)}`,
+        }
       );
     }
   }
@@ -210,7 +214,7 @@ export class MCPEnhancedContext {
   async processContext(context: CodeContext): Promise<CodeContext> {
     try {
       // Check MCP availability
-      if (!await this.mcp.isAvailable()) {
+      if (!(await this.mcp.isAvailable())) {
         if (this.debug) {
           console.warn('[FAF MCP] Server unavailable, returning original context');
         }
@@ -218,10 +222,7 @@ export class MCPEnhancedContext {
       }
 
       // Score original context
-      const originalScore = await this.mcp.scoreContext(
-        JSON.stringify(context), 
-        true
-      );
+      const originalScore = await this.mcp.scoreContext(JSON.stringify(context), true);
 
       // Enhance context if score is below threshold
       let enhancedContext = context;
@@ -235,7 +236,7 @@ export class MCPEnhancedContext {
         if (enhancementResult?.enhanced_context) {
           try {
             enhancedContext = JSON.parse(enhancementResult.enhanced_context);
-          } catch (error) {
+          } catch {
             console.warn('[FAF MCP] Failed to parse enhanced context, using original');
           }
         }
@@ -249,10 +250,9 @@ export class MCPEnhancedContext {
           mcpProcessed: true,
           mcpScore: originalScore,
           mcpEnhanced: originalScore?.score < 85,
-          mcpTimestamp: new Date().toISOString()
-        }
+          mcpTimestamp: new Date().toISOString(),
+        },
       };
-
     } catch (error) {
       if (this.debug) {
         console.warn('[FAF MCP] Context processing failed:', error);
@@ -264,15 +264,14 @@ export class MCPEnhancedContext {
   /**
    * Sync processed context with local FAF system
    */
-  async syncToLocal(context: CodeContext): Promise<boolean> {
+  async syncToLocal(_context: CodeContext): Promise<boolean> {
     try {
-      if (!await this.mcp.isAvailable()) {
+      if (!(await this.mcp.isAvailable())) {
         return false;
       }
 
       await this.mcp.biDirectionalSync();
       return true;
-      
     } catch (error) {
       if (this.debug) {
         console.warn('[FAF MCP] Sync to local failed:', error);

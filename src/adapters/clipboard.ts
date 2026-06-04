@@ -83,13 +83,9 @@ export class ClipboardManager {
    * Format FAF content according to specification
    */
   private static formatFAFContent(faf: FAFFile): string {
-    const score = faf.score as number;
-    const confidence = ClipboardManager.getConfidenceMessage(score);
-
     return `.faf Context
 URL: ${faf.context.metadata.url}
 Platform: ${faf.context.platform}
-Score: ${score}%
 Extracted: ${faf.generated}
 
 Detection
@@ -98,8 +94,7 @@ Package.json detected: ${ClipboardManager.hasPackageJson(faf)}
 Environment vars: ${ClipboardManager.hasEnvironmentVars(faf)}
 
 AI Instructions
-Context extracted from ${faf.context.platform} with ${score}% confidence.
-${confidence}
+Context extracted from ${faf.context.platform}.
 
 ## Summary
 ${faf.summary}
@@ -116,16 +111,6 @@ Packages: ${faf.context.dependencies.packages.length}
 
 ## Raw Context
 ${JSON.stringify(faf.context, null, 2)}`;
-  }
-
-  private static getConfidenceMessage(score: number): string {
-    if (score >= 80) {
-      return 'High confidence - Full project context available with complete file structure and dependencies.';
-    }
-    if (score >= 50) {
-      return 'Medium confidence - Partial context available with basic project information.';
-    }
-    return 'Low confidence - Limited context available, basic page analysis only.';
   }
 
   private static getCodeBlockCount(faf: FAFFile): number {
@@ -161,11 +146,6 @@ ${JSON.stringify(faf.context, null, 2)}`;
 
     if (!faf.context.metadata?.url) {
       throw new ClipboardError('Invalid FAF file: missing URL', 'FORMAT_ERROR');
-    }
-
-    const score = faf.score as number;
-    if (!Number.isInteger(score) || score < 0 || score > 100) {
-      throw new ClipboardError('Invalid FAF file: invalid score', 'FORMAT_ERROR');
     }
   }
 

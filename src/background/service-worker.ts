@@ -21,7 +21,6 @@ import type {
   ExtractContextMessage,
   ExtractionResult,
   Message,
-  Score,
 } from '@/core/types';
 import { errorNotifications } from '@/ui/error-notifications';
 
@@ -104,7 +103,6 @@ class ServiceWorkerState {
     if (result.success && result.faf) {
       telemetry.trackExtraction('complete', {
         platform: result.faf.context.platform,
-        score: result.faf.score,
         duration: result.faf.context.metadata.extractionTime,
         fileCount: result.faf.context.structure.totalFiles,
       });
@@ -508,7 +506,10 @@ gemini_context:
   captured_at: "${timestamp}"
   source: "${source}"
   content: |
-${text.split('\n').map((line) => `    ${line}`).join('\n')}
+${text
+  .split('\n')
+  .map((line) => `    ${line}`)
+  .join('\n')}
 `;
 
     // Copy to clipboard
@@ -581,18 +582,29 @@ gemini:
     }
 
     // Detect if it looks like code
-    const isCode = text.includes('{') || text.includes('function') || text.includes('import') ||
-                   text.includes('const ') || text.includes('def ') || text.includes('class ');
+    const isCode =
+      text.includes('{') ||
+      text.includes('function') ||
+      text.includes('import') ||
+      text.includes('const ') ||
+      text.includes('def ') ||
+      text.includes('class ');
 
     const yamlContent = isCode
       ? `code_snippet:
   language: "auto-detect"
   content: |
-${text.split('\n').map((line) => `    ${line}`).join('\n')}
+${text
+  .split('\n')
+  .map((line) => `    ${line}`)
+  .join('\n')}
 `
       : `notes:
   content: |
-${text.split('\n').map((line) => `    ${line}`).join('\n')}
+${text
+  .split('\n')
+  .map((line) => `    ${line}`)
+  .join('\n')}
 `;
 
     try {
@@ -694,10 +706,6 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
 
     try {
       switch (message.type) {
-        case 'PING':
-          _sendResponse({ type: 'PONG', timestamp: Date.now(), source: 'service-worker' });
-          return true;
-
         case 'EXTRACT_CONTEXT':
           return await this.handleExtractRequest(message as ExtractContextMessage, tabId);
 
@@ -803,8 +811,8 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
       // Record success
       this.state.recordSuccess(result);
 
-      // Update badge with score
-      await this.updateBadgeWithScore(result.faf.score);
+      // Clear badge (extraction-only tool, no score)
+      await this.updateBadge();
 
       // Store extraction result
       await ChromeStorageAPI.set({
@@ -813,12 +821,9 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
       });
 
       // Show success notification
-      await this.showSuccessNotification(
-        result.faf.score,
-        result.faf.context.metadata.extractionTime
-      );
+      await this.showSuccessNotification(result.faf.context.metadata.extractionTime);
 
-      console.log(`✅ Extraction completed for tab ${tabId} with score ${result.faf.score}%`);
+      console.log(`✅ Extraction completed for tab ${tabId}`);
       return { success: true };
     } catch (error) {
       console.error('❌ Post-extraction processing failed:', error);
@@ -871,11 +876,11 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
   }
 
   /**
-   * Update badge with extraction score using proper colors
+   * Clear the badge (extraction-only tool, no score)
    */
-  private async updateBadgeWithScore(score: Score): Promise<void> {
+  private async updateBadge(): Promise<void> {
     try {
-      await ChromeAction.updateBadge(score);
+      await ChromeAction.updateBadge();
     } catch (error) {
       console.error('❌ Badge update failed:', error);
       // Don't throw - badge update is not critical
@@ -885,12 +890,11 @@ ${text.split('\n').map((line) => `    ${line}`).join('\n')}
   /**
    * Show success notification with extraction details
    */
-  private async showSuccessNotification(score: Score, extractionTime: number): Promise<void> {
+  private async showSuccessNotification(extractionTime: number): Promise<void> {
     try {
-      const scoreValue = score as number;
       await ChromeNotifications.create(
         'FAF - Context Extracted! ⚡️',
-        `Score: ${scoreValue}% | Time: ${Math.round(extractionTime)}ms | Copied to clipboard`,
+        `Time: ${Math.round(extractionTime)}ms | Copied to clipboard`,
         'icons/social-logo-128.png'
       );
     } catch (error) {
