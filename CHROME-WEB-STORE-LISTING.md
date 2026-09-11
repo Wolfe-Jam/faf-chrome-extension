@@ -51,6 +51,8 @@ Get stack info in seconds, not minutes. No 500MB clones. No git required. Just c
 • No data sent to servers
 • No accounts required
 • Your code never leaves your machine
+• Results and usage logs stay in your browser's local storage
+• Privacy policy: https://faf.one/privacy
 
 **USE CASES:**
 

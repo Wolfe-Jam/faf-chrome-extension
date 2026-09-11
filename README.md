@@ -201,7 +201,8 @@ FAF is engineered for speed:
 
 - **🔐 No data collection** - Everything runs locally
 - **🚫 No network requests** - Complete offline operation  
-- **🔒 No storage** of sensitive information
+- **🔒 Local storage only** - Extraction results and usage logs (including the page URLs you used it on) stay in your browser's `chrome.storage.local`; nothing is sent
+- **📄 Privacy policy** - [faf.one/privacy](https://faf.one/privacy)
 - **✅ Open source** - Fully auditable code
 - **🛡️ CSP compliant** - Works on security-focused sites
 
