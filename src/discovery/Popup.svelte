@@ -64,7 +64,7 @@
     </div>
   {/if}
 
-  <footer>By James Wolfe, creator of FAF and AAIF Ambassador</footer>
+  <footer>By James Wolfe, .FAF Creator and AAIF Ambassador</footer>
 </main>
 
 <style>

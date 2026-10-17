@@ -153,7 +153,7 @@ try {
   await page.waitForSelector('[role="alert"], ul', { timeout: 10000 });
   const body = await page.textContent('body');
   check('popup boots as an extension page and shows its name', body.includes('Agent Discovery Check'));
-  check('popup shows the byline', body.includes('By James Wolfe, creator of FAF and AAIF Ambassador'));
+  check('popup shows the byline', body.includes('By James Wolfe, .FAF Creator and AAIF Ambassador'));
   check('popup on a non-website tab says so, instead of crashing', body.includes('cannot be checked'), body.slice(0, 120));
   check('popup raised no console or page errors (CSP, bundle)', errors.length === 0, errors.join(' | '));
   const manifest = await page.evaluate(() => chrome.runtime.getManifest());

@@ -141,7 +141,7 @@ describe('popup states', () => {
   it('shows the approved byline', async () => {
     run.mockResolvedValue({ ok: true, report });
     await open();
-    expect(text()).toContain('By James Wolfe, creator of FAF and AAIF Ambassador');
+    expect(text()).toContain('By James Wolfe, .FAF Creator and AAIF Ambassador');
   });
 
   it('a page that cannot be checked shows the reason as an alert, with a retry', async () => {
