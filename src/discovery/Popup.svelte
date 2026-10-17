@@ -7,9 +7,9 @@
 
   const MARK: Record<RowStatus, string> = { found: '✓', missing: '✗', unreadable: '!', skipped: '–' };
   const LABEL: Record<RowStatus, string> = {
-    found: 'Found',
-    missing: 'Not found',
-    unreadable: "Couldn't read",
+    found: 'Published',
+    missing: 'Not published',
+    unreadable: 'Unreadable',
     skipped: 'Skipped',
   };
 
@@ -74,6 +74,8 @@
     --muted: #5b6573;
     --line: #e1e5ea;
     --found: #00bc61;
+    /* Foundation Green carries dark text, never white (contrast). */
+    --found-ink: #062612;
     --missing: #8a93a0;
     --unreadable: #b7791f;
     --link: #0b6e99;
@@ -177,7 +179,32 @@
   }
 
   .status {
+    flex: none;
+    align-self: flex-start;
+    padding: 1px 8px;
+    border: 1px solid var(--missing);
+    border-radius: 999px;
     color: var(--muted);
+    font-size: 11.5px;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  li.found .status {
+    border-color: var(--found);
+    background: var(--found);
+    color: var(--found-ink);
+  }
+
+  li.unreadable .status {
+    border-color: var(--unreadable);
+    color: var(--fg);
+  }
+
+  li.skipped .status {
+    border-color: transparent;
+    padding-inline: 0;
+    font-weight: 400;
   }
 
   .detail {

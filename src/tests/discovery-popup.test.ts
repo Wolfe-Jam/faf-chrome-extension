@@ -101,7 +101,7 @@ describe('popup states', () => {
     await open();
     await settle(() => expect(target.querySelectorAll('li')).toHaveLength(5));
     const labels = [...target.querySelectorAll('.status')].map((e) => e.textContent);
-    expect(labels).toEqual(['Found', 'Skipped', 'Not found', "Couldn't read", 'Found']);
+    expect(labels).toEqual(['Published', 'Skipped', 'Not published', 'Unreadable', 'Published']);
     // The glyph is decoration; screen readers get the word.
     for (const m of target.querySelectorAll('.mark'))
       expect(m.getAttribute('aria-hidden')).toBe('true');
