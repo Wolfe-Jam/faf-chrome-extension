@@ -1,0 +1,109 @@
+/**
+ * Runs the Agent Discovery Check on one tab: inject the two probes, read both results,
+ * and join them into one report. The popup calls this with the active tab.
+ */
+
+import { type DiscoveryReport, type WebMcpTool, probeWebMcp } from '@/core/discovery';
+
+export type TabRun = { ok: true; report: DiscoveryReport } | { ok: false; reason: string };
+
+/** The slice of chrome.scripting this module uses; tests pass a fake. */
+export interface ScriptingApi {
+  executeScript: (injection: {
+    target: { tabId: number };
+    world?: 'ISOLATED' | 'MAIN';
+    files?: string[];
+    func?: (key: string) => unknown;
+    args?: string[];
+  }) => Promise<Array<{ result?: unknown }>>;
+}
+
+/** The real chrome.scripting, adapted to the narrow ScriptingApi (its own type is a files-or-func union). */
+export const chromeScripting: ScriptingApi = {
+  executeScript: (injection) =>
+    chrome.scripting.executeScript(
+      injection as chrome.scripting.ScriptInjection<string[], unknown>
+    ),
+};
+
+const SITE_KEY = '__fafAgentDiscoverySite';
+const WEBMCP_KEY = '__fafAgentDiscoveryWebMcp';
+
+export function isCheckable(url: string | undefined): url is string {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
+async function readInjected<T>(
+  scripting: ScriptingApi,
+  tabId: number,
+  file: string,
+  key: string,
+  world: 'ISOLATED' | 'MAIN'
+): Promise<T> {
+  await scripting.executeScript({ target: { tabId }, world, files: [file] });
+  const [first] = await scripting.executeScript({
+    target: { tabId },
+    world,
+    // func is serialized into the page, so it cannot close over variables: the key goes in args.
+    func: (k: string) => (globalThis as Record<string, unknown>)[k],
+    args: [key],
+  });
+  return first?.result as T;
+}
+
+export async function discoverTab(
+  tab: { id?: number; url?: string },
+  scripting: ScriptingApi
+): Promise<TabRun> {
+  if (tab.id === undefined || !isCheckable(tab.url)) {
+    return {
+      ok: false,
+      reason: 'This page cannot be checked. Open a website (http or https) and click again.',
+    };
+  }
+  const tabId = tab.id;
+
+  let site: DiscoveryReport;
+  try {
+    site = await readInjected<DiscoveryReport>(
+      scripting,
+      tabId,
+      'probe-site.js',
+      SITE_KEY,
+      'ISOLATED'
+    );
+  } catch (e) {
+    return {
+      ok: false,
+      reason: `Could not read this page: ${e instanceof Error ? e.message : String(e)}`,
+    };
+  }
+  if (!site || !Array.isArray(site.rows))
+    return { ok: false, reason: 'The page did not return a result.' };
+
+  // The page's own WebMCP API is only visible from the MAIN world. A failure here only affects that one row.
+  let tools: WebMcpTool[] | null = null;
+  let webmcpError: Error | null = null;
+  try {
+    tools = await readInjected<WebMcpTool[] | null>(
+      scripting,
+      tabId,
+      'probe-webmcp.js',
+      WEBMCP_KEY,
+      'MAIN'
+    );
+  } catch (e) {
+    webmcpError = e instanceof Error ? e : new Error(String(e));
+  }
+
+  const webmcpRow = await probeWebMcp({
+    origin: site.origin,
+    fetch,
+    webmcp: async () => {
+      if (webmcpError) throw webmcpError;
+      return tools ?? null;
+    },
+  });
+  const rows = site.rows.map((r) => (r.id === 'webmcp' ? webmcpRow : r));
+  return { ok: true, report: { ...site, rows } };
+}
