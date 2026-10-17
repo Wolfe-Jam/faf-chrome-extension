@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { DiscoveryReport, RowStatus } from '@/core/discovery';
+  import { type DiscoveryReport, type DiscoveryRow, type RowStatus, issues } from '@/core/discovery';
   import { chromeScripting, discoverTab } from './run';
 
   type View = { kind: 'loading' } | { kind: 'error'; reason: string } | { kind: 'done'; report: DiscoveryReport };
@@ -14,6 +14,23 @@
   };
 
   let view = $state<View>({ kind: 'loading' });
+
+  /** The pill: "Published", or "Published · 2 issues" when spec checks failed. */
+  function pill(row: DiscoveryRow): { text: string; warn: boolean } {
+    const n = issues(row);
+    const total = n.must + n.should;
+    if (row.status !== 'found' || total === 0) return { text: LABEL[row.status], warn: false };
+    return { text: `${LABEL.found} · ${total} ${total === 1 ? 'issue' : 'issues'}`, warn: n.must > 0 };
+  }
+
+  /** Failed first (MUST before SHOULD), then passed, then skipped. */
+  function ordered(row: DiscoveryRow) {
+    const rank = (c: NonNullable<DiscoveryRow['checks']>[number]) =>
+      (c.status === 'fail' ? 0 : c.status === 'pass' ? 2 : 3) + (c.level === 'must' ? 0 : 1);
+    return [...(row.checks ?? [])].sort((a, b) => rank(a) - rank(b));
+  }
+
+  const CHECK_MARK = { pass: '✓', fail: '✗', skip: '–' } as const;
 
   async function run() {
     view = { kind: 'loading' };
@@ -50,9 +67,27 @@
           <div class="body">
             <div class="line">
               <span class="title">{row.title}</span>
-              <span class="status">{LABEL[row.status]}</span>
+              <span class="status" class:warn={pill(row).warn}>{pill(row).text}</span>
             </div>
             {#if row.detail}<p class="detail">{row.detail}</p>{/if}
+            {#if row.checks?.length}
+              <details class="checks">
+                <summary>{row.checks.length} spec checks</summary>
+                <ul>
+                  {#each ordered(row) as c (c.id)}
+                    <li class={`check ${c.status}`}>
+                      <span class="cmark" aria-hidden="true">{CHECK_MARK[c.status]}</span>
+                      <span class="level">{c.level.toUpperCase()}</span>
+                      <span class="ctitle">
+                        {c.title}
+                        {#if c.detail && c.status !== 'pass'}<span class="cdetail">{c.detail}</span>{/if}
+                      </span>
+                      {#if c.spec}<a href={c.spec.url} target="_blank" rel="noreferrer" title={c.spec.label}>↗</a>{/if}
+                    </li>
+                  {/each}
+                </ul>
+              </details>
+            {/if}
             <a href={row.spec.url} target="_blank" rel="noreferrer" title={row.spec.label} aria-label={`${row.spec.label} spec`}>Spec ↗</a>
           </div>
         </li>
@@ -199,6 +234,72 @@
   li.unreadable .status {
     border-color: var(--unreadable);
     color: var(--fg);
+  }
+
+  li.found .status.warn {
+    border-color: var(--unreadable);
+    background: transparent;
+    color: var(--fg);
+  }
+
+  .checks {
+    margin: 4px 0 2px;
+  }
+
+  .checks summary {
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .checks ul {
+    margin-top: 4px;
+  }
+
+  li.check {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+    padding: 3px 0;
+    border: 0;
+    font-size: 12px;
+  }
+
+  .cmark {
+    width: 12px;
+    flex: none;
+    font-weight: 700;
+  }
+
+  li.check.pass .cmark {
+    color: var(--found);
+  }
+
+  li.check.fail .cmark {
+    color: var(--unreadable);
+  }
+
+  li.check.skip {
+    color: var(--muted);
+  }
+
+  .level {
+    flex: none;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--muted);
+  }
+
+  .ctitle {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cdetail {
+    display: block;
+    color: var(--muted);
+    word-break: break-word;
   }
 
   li.skipped .status {

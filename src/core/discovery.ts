@@ -24,6 +24,17 @@ export interface SpecRef {
   url: string;
 }
 
+/** One spec-cited check from mcp-server-card-check, as shown under a row. */
+export interface SpecCheck {
+  id: string;
+  tier: 'card' | 'hosting' | 'catalog';
+  level: 'must' | 'should';
+  title: string;
+  status: 'pass' | 'fail' | 'skip';
+  detail?: string;
+  spec?: SpecRef;
+}
+
 export interface DiscoveryRow {
   id: Surface;
   title: string;
@@ -32,6 +43,8 @@ export interface DiscoveryRow {
   url?: string;
   ms?: number;
   spec: SpecRef;
+  /** Spec-cited checks for this surface (AI Catalog, Server Card), when they ran. */
+  checks?: SpecCheck[];
 }
 
 export interface WebMcpTool {
@@ -43,6 +56,8 @@ export interface ProbeContext {
   fetch: typeof fetch;
   /** Reads the page's WebMCP tools. Resolves null when the page exposes no WebMCP API. */
   webmcp?: () => Promise<WebMcpTool[] | null>;
+  /** Runs the spec checks for one Server Card and its catalog (read-only). */
+  checkSite?: (target: { cardUrl: string; catalogUrl: string }) => Promise<SpecCheck[]>;
   timeoutMs?: number;
 }
 
@@ -183,7 +198,7 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
   }
 
   const cards = entries.filter(
-    (e): e is { type: string } =>
+    (e): e is { type: string; url?: unknown } =>
       typeof e === 'object' && e !== null && (e as { type?: unknown }).type === SERVER_CARD_TYPE
   );
   const catalogRow = row('ai-catalog', 'found', {
@@ -197,7 +212,29 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
         url,
         detail: `no catalog entry of type ${SERVER_CARD_TYPE}`,
       });
+  if (cards.length && ctx.checkSite && typeof cards[0].url === 'string') {
+    try {
+      const cardUrl = new URL(cards[0].url, url).href;
+      const checks = await ctx.checkSite({ cardUrl, catalogUrl: url });
+      catalogRow.checks = checks.filter((c) => c.tier === 'catalog');
+      cardRow.checks = checks.filter((c) => c.tier !== 'catalog');
+      cardRow.url = cardUrl;
+      if (cards.length > 1)
+        cardRow.detail = `${cards.length} listed in the catalog; the first is checked`;
+    } catch (e) {
+      cardRow.detail = `${cardRow.detail}; checks could not run (${e instanceof Error ? e.message : String(e)})`;
+    }
+  }
   return [catalogRow, cardRow];
+}
+
+/** Failed checks under a row, MUST first. */
+export function issues(row: DiscoveryRow): { must: number; should: number } {
+  const failed = (row.checks ?? []).filter((c) => c.status === 'fail');
+  return {
+    must: failed.filter((c) => c.level === 'must').length,
+    should: failed.filter((c) => c.level === 'should').length,
+  };
 }
 
 export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {

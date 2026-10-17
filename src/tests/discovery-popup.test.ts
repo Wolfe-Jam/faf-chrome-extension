@@ -180,3 +180,87 @@ describe('popup states', () => {
     await settle(() => expect(run).toHaveBeenCalledTimes(2));
   });
 });
+
+describe('spec checks under a row (step 3d)', () => {
+  const withChecks: DiscoveryReport = {
+    ...report,
+    rows: [
+      {
+        id: 'server-card',
+        title: 'MCP Server Card',
+        status: 'found',
+        spec: spec('MCP Server Card'),
+        checks: [
+          {
+            id: 'card.json',
+            tier: 'card',
+            level: 'must',
+            title: 'The card is JSON',
+            status: 'pass',
+            spec: spec('json'),
+          },
+          {
+            id: 'hosting.etag',
+            tier: 'hosting',
+            level: 'should',
+            title: 'ETag answers 304',
+            status: 'fail',
+            detail: 'no ETag',
+            spec: spec('etag'),
+          },
+          {
+            id: 'hosting.cors-origin',
+            tier: 'hosting',
+            level: 'must',
+            title: 'Allow-Origin is *',
+            status: 'fail',
+            detail: 'missing',
+            spec: spec('cors'),
+          },
+          {
+            id: 'hosting.cors-expose',
+            tier: 'hosting',
+            level: 'should',
+            title: 'Expose-Headers',
+            status: 'skip',
+            detail: 'other origin',
+            spec: spec('expose'),
+          },
+        ],
+      },
+      { id: 'llms-txt', title: 'llms.txt', status: 'found', spec: spec('llms.txt') },
+    ],
+  };
+
+  it('counts failed checks in the pill and marks it when a MUST failed', async () => {
+    run.mockResolvedValue({ ok: true, report: withChecks });
+    await open();
+    await settle(() => expect(target.querySelectorAll('.status')).toHaveLength(2));
+    const [cardPill, llmsPill] = [...target.querySelectorAll('.status')];
+    expect(cardPill.textContent).toBe('Published · 2 issues');
+    expect(cardPill.classList.contains('warn')).toBe(true);
+    expect(llmsPill.textContent).toBe('Published');
+    expect(llmsPill.classList.contains('warn')).toBe(false);
+  });
+
+  it('lists the checks failed-MUST first, each with its level and a spec link', async () => {
+    run.mockResolvedValue({ ok: true, report: withChecks });
+    await open();
+    await settle(() => expect(target.querySelectorAll('li.check')).toHaveLength(4));
+    expect(text()).toContain('4 spec checks');
+    const ids = [...target.querySelectorAll('li.check')].map(
+      (li) => li.querySelector('.ctitle')?.textContent?.trim().split('\n')[0]
+    );
+    expect(ids[0]).toContain('Allow-Origin is *');
+    expect(ids[1]).toContain('ETag answers 304');
+    expect(ids[2]).toContain('The card is JSON');
+    expect(ids[3]).toContain('Expose-Headers');
+    expect([...target.querySelectorAll('li.check .level')].map((e) => e.textContent)).toEqual([
+      'MUST',
+      'SHOULD',
+      'MUST',
+      'SHOULD',
+    ]);
+    expect(target.querySelectorAll('li.check a[href^="https://spec.example/"]')).toHaveLength(4);
+  });
+});

@@ -4,8 +4,15 @@
  */
 
 import { runChecks } from '@/core/discovery';
+import { makeCheckSite } from './check-site';
+
+const pageFetch = fetch.bind(globalThis);
 
 (globalThis as Record<string, unknown>).__fafAgentDiscoverySite = runChecks(
-  { origin: location.origin, fetch: fetch.bind(globalThis) },
+  {
+    origin: location.origin,
+    fetch: pageFetch,
+    checkSite: makeCheckSite(location.origin, pageFetch),
+  },
   location.href
 );

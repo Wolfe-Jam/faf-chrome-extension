@@ -69,7 +69,15 @@ const sites = {
   full: (req, res) => {
     if (req.url === '/.well-known/ai-catalog.json') {
       res.writeHead(200, { 'content-type': 'application/ai-catalog+json' });
-      return res.end(JSON.stringify({ entries: [{ type: CARD }, { type: 'application/a2a-card+json' }] }));
+      return res.end(JSON.stringify({ entries: [{ type: CARD, url: '/mcp/server-card' }, { type: 'application/a2a-card+json' }] }));
+    }
+    if (req.url === '/mcp/server-card') {
+      res.writeHead(200, { 'content-type': CARD, 'access-control-allow-origin': '*' });
+      return res.end(JSON.stringify({
+        $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
+        name: 'com.example/weather', version: '2.0.0', description: 'Weather for agents.',
+        remotes: [{ type: 'streamable-http', url: 'http://127.0.0.1/mcp' }],
+      }));
     }
     if (req.url === '/llms.txt') {
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
@@ -125,6 +133,9 @@ try {
   const full = await rows('full');
   check('full site: AI Catalog found, 2 entries', full.by['ai-catalog']?.status === 'found' && full.by['ai-catalog'].detail === '2 entries', JSON.stringify(full.by['ai-catalog']));
   check('full site: Server Card found, 1 listed', full.by['server-card']?.status === 'found' && full.by['server-card'].detail.startsWith('1 '));
+  const cardChecks = full.by['server-card']?.checks ?? [];
+  check('full site: the built page script runs the spec checks (schema valid, every check linked)', cardChecks.find((c) => c.id === 'card.schema-valid')?.status === 'pass' && cardChecks.length > 5 && cardChecks.every((c) => c.spec?.url?.startsWith('https://')), JSON.stringify(cardChecks.map((c) => `${c.id}:${c.status}`)));
+  check('full site: no transport or consistency checks (read-only)', cardChecks.every((c) => c.tier === 'card' || c.tier === 'hosting'));
   check('full site: llms.txt found, size in bytes (non-ASCII)', full.by['llms-txt']?.detail === `${Buffer.byteLength('# Café\n\n> Facts for agents.\n')} bytes`, full.by['llms-txt']?.detail);
   check('full site: WebMCP page reader returns both tools', JSON.stringify(full.tools) === JSON.stringify([{ name: 'score_faf' }, { name: 'emit_agents_md' }]), JSON.stringify(full.tools));
 
