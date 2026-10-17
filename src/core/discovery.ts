@@ -74,8 +74,43 @@ const DEFAULT_TIMEOUT_MS = 8000;
 const MAX_BYTES = 1_048_576;
 
 type Fetched =
-  | { ok: true; status: number; type: string; text: string; ms: number }
+  | { ok: true; status: number; type: string; text: string; truncated: boolean; ms: number }
   | { ok: false; error: string; ms: number };
+
+/**
+ * Reads at most `max` bytes, then cancels the stream: a huge or endless body is never
+ * buffered whole. TextDecoder drops a leading UTF-8 BOM, so JSON.parse never sees one.
+ */
+async function readCapped(
+  res: Response,
+  max: number
+): Promise<{ text: string; truncated: boolean }> {
+  if (!res.body) return { text: '', truncated: false };
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (size + value.length > max) {
+      chunks.push(value.subarray(0, max - size));
+      size = max;
+      truncated = true;
+      await reader.cancel().catch(() => undefined);
+      break;
+    }
+    chunks.push(value);
+    size += value.length;
+  }
+  const bytes = new Uint8Array(size);
+  let at = 0;
+  for (const c of chunks) {
+    bytes.set(c, at);
+    at += c.length;
+  }
+  return { text: new TextDecoder().decode(bytes), truncated };
+}
 
 async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetched> {
   const t0 = Date.now();
@@ -86,12 +121,14 @@ async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetc
       redirect: 'follow',
       signal: AbortSignal.timeout(ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
-    const text = method === 'HEAD' ? '' : (await r.text()).slice(0, MAX_BYTES);
+    const { text, truncated } =
+      method === 'HEAD' ? { text: '', truncated: false } : await readCapped(r, MAX_BYTES);
     return {
       ok: true,
       status: r.status,
       type: r.headers.get('content-type') ?? '',
       text,
+      truncated,
       ms: Date.now() - t0,
     };
   } catch (e) {
@@ -122,6 +159,12 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
   if (bad)
     return [bad, row('server-card', 'skipped', { detail: 'needs an AI Catalog to list cards' })];
   if (!f.ok) return [];
+  if (f.truncated) {
+    return [
+      row('ai-catalog', 'unreadable', { url, detail: 'larger than 1 MiB', ms: f.ms }),
+      row('server-card', 'skipped', { detail: 'catalog not readable' }),
+    ];
+  }
 
   let entries: unknown;
   try {
@@ -163,8 +206,9 @@ export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {
   const bad = notFound('llms-txt', url, f);
   if (bad) return bad;
   if (!f.ok) return row('llms-txt', 'unreadable', { url });
-  // A soft 404 answers 200 with an HTML page. Real llms.txt is plain text / Markdown.
-  const looksHtml = /html/i.test(f.type) || /^\s*<(!doctype|html)/i.test(f.text);
+  // A soft 404 answers 200 with an HTML page. Judge the body, not the header: a real llms.txt
+  // served as text/html (a common misconfiguration) is still an llms.txt.
+  const looksHtml = /^\s*<(!doctype|html|head|body)\b/i.test(f.text);
   if (looksHtml || !f.text.trim()) {
     return row('llms-txt', 'missing', {
       url,
@@ -174,7 +218,7 @@ export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {
   }
   // Bytes, not characters: the two differ for any non-ASCII file. Reads are capped, so say so past the cap.
   const bytes = new TextEncoder().encode(f.text).length;
-  const detail = f.text.length >= MAX_BYTES ? 'over 1 MiB' : `${bytes} bytes`;
+  const detail = f.truncated ? 'over 1 MiB' : `${bytes} bytes`;
   return row('llms-txt', 'found', { url, detail, ms: f.ms });
 }
 
