@@ -2,10 +2,13 @@
  * Vitest Configuration - Comprehensive Testing Setup
  */
 
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 
 export default defineConfig({
+  // Compiles .svelte files for component tests (browser build of Svelte, so mount() exists under jsdom)
+  plugins: [svelte({ hot: false })],
   test: {
     globals: true,
     environment: 'jsdom',
@@ -38,6 +41,7 @@ export default defineConfig({
   },
   
   resolve: {
+    conditions: ['browser'],
     alias: {
       '@': resolve(__dirname, 'src'),
       '@/core': resolve(__dirname, 'src/core'),

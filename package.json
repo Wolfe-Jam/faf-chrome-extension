@@ -36,7 +36,9 @@
     "security": "npm audit --audit-level high && node scripts/security-check.js",
     "release:patch": "npm version patch && npm run deploy:prod",
     "release:minor": "npm version minor && npm run deploy:prod",
-    "release:major": "npm version major && npm run deploy:prod"
+    "release:major": "npm version major && npm run deploy:prod",
+    "build:discovery": "rm -rf dist-discovery && DISCOVERY_ENTRY=popup vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-site vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-webmcp vite build --config vite.discovery.config.ts && cp -R public/icons dist-discovery/icons",
+    "smoke:discovery": "node scripts/smoke-discovery.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.4.1",
@@ -57,6 +59,7 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@faf/engine": "file:vendor/faf-engine-3.1.0.tgz"
+    "@faf/engine": "file:vendor/faf-engine-3.1.0.tgz",
+    "mcp-server-card-check": "^0.4.0"
   }
 }
