@@ -62,8 +62,13 @@ for (const f of ['manifest.json', 'popup.html', 'popup.js', 'probe-site.js', 'pr
 
 // 2. Three fixture sites on real sockets.
 const CARD = 'application/mcp-server-card+json';
-const WEBMCP_PAGE = `<!doctype html><title>full</title><script>
-  document.modelContext = { getTools: async () => [{ name: 'score_faf' }, { name: 'emit_agents_md' }] };
+const WEBMCP_PAGE = `<!doctype html><title>full</title>
+<form toolname="fill_6ws" tooldescription="Capture the 6 Ws."></form>
+<script>
+  document.modelContext = { getTools: async () => [
+    { name: 'score_faf', description: 'Score a .faf document.', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
+    { name: 'fill_6ws', description: 'Capture the 6 Ws.' },
+  ] };
 </script>`;
 const sites = {
   full: (req, res) => {
@@ -137,7 +142,8 @@ try {
   check('full site: the built page script runs the spec checks (schema valid, every check linked)', cardChecks.find((c) => c.id === 'card.schema-valid')?.status === 'pass' && cardChecks.length > 5 && cardChecks.every((c) => c.spec?.url?.startsWith('https://')), JSON.stringify(cardChecks.map((c) => `${c.id}:${c.status}`)));
   check('full site: no transport or consistency checks (read-only)', cardChecks.every((c) => c.tier === 'card' || c.tier === 'hosting'));
   check('full site: llms.txt found, size in bytes (non-ASCII)', full.by['llms-txt']?.detail === `${Buffer.byteLength('# Café\n\n> Facts for agents.\n')} bytes`, full.by['llms-txt']?.detail);
-  check('full site: WebMCP page reader returns both tools', JSON.stringify(full.tools) === JSON.stringify([{ name: 'score_faf' }, { name: 'emit_agents_md' }]), JSON.stringify(full.tools));
+  check('full site: WebMCP page reader returns both tools with their fields', full.tools?.length === 2 && full.tools[0].name === 'score_faf' && full.tools[0].inputSchema === '{"type":"object"}' && full.tools[0].annotations?.readOnlyHint === true && full.tools[0].declarative === false, JSON.stringify(full.tools));
+  check('full site: the form tool is marked declarative', full.tools?.[1]?.name === 'fill_6ws' && full.tools[1].declarative === true && full.tools[1].annotations === null, JSON.stringify(full.tools?.[1]));
 
   const empty = await rows('empty');
   check('empty site: AI Catalog not found, Server Card skipped', empty.by['ai-catalog']?.status === 'missing' && empty.by['server-card']?.status === 'skipped');
