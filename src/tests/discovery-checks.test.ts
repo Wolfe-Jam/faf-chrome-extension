@@ -158,3 +158,76 @@ describe('makeCheckSite (real mcp-server-card-check, fake network)', () => {
     );
   });
 });
+
+describe('makeCheckSite: bounded reads (a catalog cannot aim the extension at other hosts)', () => {
+  const OTHER = 'https://lan.example.net';
+  const catalogWith = (urls: string[]) =>
+    JSON.stringify({
+      specVersion: '1.0',
+      host: { displayName: 'Example', identifier: ORIGIN },
+      entries: urls.map((url, i) => ({
+        identifier: `urn:air:example.com:mcp:e${i}`,
+        type: SERVER_CARD_TYPE,
+        url,
+      })),
+    });
+
+  /** Serves the catalog, the card, and logs every URL asked for. */
+  function run(urls: string[], cardUrl = CARD) {
+    const seen: string[] = [];
+    const h: Handler = (u) => {
+      seen.push(u);
+      if (u === CATALOG)
+        return new Response(catalogWith(urls), {
+          status: 200,
+          headers: { 'content-type': 'application/ai-catalog+json' },
+        });
+      if (u === cardUrl)
+        return new Response(JSON.stringify(card), {
+          status: 200,
+          headers: { 'content-type': SERVER_CARD_TYPE },
+        });
+      return new Response('nope', { status: 404 });
+    };
+    return {
+      seen,
+      checks: makeCheckSite(ORIGIN, fetchFrom(h))({ cardUrl, catalogUrl: CATALOG }),
+    };
+  }
+
+  it('never requests a host that is neither the page nor the first card', async () => {
+    const urls = Array.from({ length: 25 }, (_, i) => `${OTHER}/c${i}`);
+    const { seen, checks } = run([CARD, ...urls]);
+    await checks;
+    expect(seen.filter((u) => u.startsWith(OTHER))).toEqual([]);
+  });
+
+  it('reports the link check as skipped, naming why, when entries sit on other hosts', async () => {
+    const { checks } = run([CARD, `${OTHER}/a`, `${OTHER}/b`]);
+    const links = (await checks).find((c) => c.id === 'catalog.links');
+    expect(links?.status).toBe('skip');
+    expect(links?.detail).toMatch(/other host/i);
+    expect(links?.detail).toContain('servercard.wolfejam.dev');
+  });
+
+  it('still reads the card on another host when the catalog lists it first', async () => {
+    const card2 = `${OTHER}/mcp/server-card`;
+    const { seen, checks } = run([card2], card2);
+    const out = await checks;
+    expect(seen).toContain(card2);
+    expect(out.find((c) => c.id === 'card.schema-valid')?.status).toBe('pass');
+  });
+
+  it('caps the requests one click can cause, even on the page own origin', async () => {
+    const urls = Array.from({ length: 200 }, (_, i) => `${ORIGIN}/x${i}`);
+    const { seen, checks } = run([CARD, ...urls]);
+    const out = await checks;
+    expect(seen.length).toBeLessThanOrEqual(30);
+    expect(out.find((c) => c.id === 'catalog.links')?.status).toBe('skip');
+  });
+
+  it('leaves a normal same-origin catalog fully checked', async () => {
+    const { checks } = run([CARD]);
+    expect((await checks).find((c) => c.id === 'catalog.links')?.status).toBe('pass');
+  });
+});
