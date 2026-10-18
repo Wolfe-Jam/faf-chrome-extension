@@ -26,11 +26,12 @@
   /** Failed first (MUST before SHOULD), then passed, then skipped. */
   function ordered(row: DiscoveryRow) {
     const rank = (c: NonNullable<DiscoveryRow['checks']>[number]) =>
-      (c.status === 'fail' ? 0 : c.status === 'pass' ? 2 : 3) + (c.level === 'must' ? 0 : 1);
+      (c.status === 'fail' ? 0 : c.status === 'pass' ? 2 : c.status === 'skip' ? 3 : 4) +
+      (c.level === 'must' ? 0 : 1);
     return [...(row.checks ?? [])].sort((a, b) => rank(a) - rank(b));
   }
 
-  const CHECK_MARK = { pass: '✓', fail: '✗', skip: '–' } as const;
+  const CHECK_MARK = { pass: '✓', fail: '✗', skip: '–', info: 'i' } as const;
 
   async function run() {
     view = { kind: 'loading' };
@@ -72,7 +73,7 @@
             {#if row.detail}<p class="detail">{row.detail}</p>{/if}
             {#if row.checks?.length}
               <details class="checks">
-                <summary>{row.checks.length} spec checks</summary>
+                <summary>{row.checks.filter((c) => c.level !== 'note').length} spec checks{#if row.checks.some((c) => c.level === 'note')}, with notes{/if}</summary>
                 <ul>
                   {#each ordered(row) as c (c.id)}
                     <li class={`check ${c.status}`}>
@@ -279,8 +280,13 @@
     color: var(--unreadable);
   }
 
-  li.check.skip {
+  li.check.skip,
+  li.check.info {
     color: var(--muted);
+  }
+
+  li.check.info .cmark {
+    font-style: italic;
   }
 
   .level {

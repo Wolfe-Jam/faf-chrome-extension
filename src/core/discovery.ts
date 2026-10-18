@@ -27,10 +27,11 @@ export interface SpecRef {
 /** One spec-cited check from mcp-server-card-check, as shown under a row. */
 export interface SpecCheck {
   id: string;
-  tier: 'card' | 'hosting' | 'catalog';
-  level: 'must' | 'should';
+  tier: 'card' | 'hosting' | 'catalog' | 'webmcp';
+  /** `note` reports what is declared where the spec sets no rule; it is never an issue. */
+  level: 'must' | 'should' | 'note';
   title: string;
-  status: 'pass' | 'fail' | 'skip';
+  status: 'pass' | 'fail' | 'skip' | 'info';
   detail?: string;
   spec?: SpecRef;
 }
@@ -49,6 +50,81 @@ export interface DiscoveryRow {
 
 export interface WebMcpTool {
   name: string;
+  description?: string;
+  /** The input schema as the page reports it (stringified). */
+  inputSchema?: string;
+  annotations?: Record<string, boolean> | null;
+  /** Declared by a <form toolname> rather than registerTool(). */
+  declarative?: boolean;
+}
+
+const WEBMCP_SPEC = 'https://webmachinelearning.github.io/webmcp/';
+const wspec = (label: string, anchor: string): SpecRef => ({
+  label: `WebMCP: ${label}`,
+  url: `${WEBMCP_SPEC}#${anchor}`,
+});
+// "between 1 and 128, inclusive, and only consist of ASCII alphanumeric code points, _, - and ."
+const TOOL_NAME = /^[A-Za-z0-9_.-]{1,128}$/;
+
+/** Checks for one WebMCP tool, from the spec's own rules (ModelContextTool, registerTool()). */
+export function webMcpToolChecks(t: WebMcpTool): SpecCheck[] {
+  const id = (k: string) => `webmcp.${t.name || '(unnamed)'}.${k}`;
+  const out: SpecCheck[] = [];
+  out.push({
+    id: id('name'),
+    tier: 'webmcp',
+    level: 'must',
+    title: `${t.name || '(unnamed)'}: name is 1–128 letters, digits, _ - or .`,
+    status: TOOL_NAME.test(t.name) ? 'pass' : 'fail',
+    ...(TOOL_NAME.test(t.name) ? {} : { detail: `got "${t.name.slice(0, 60)}"` }),
+    spec: wspec('tool name', 'tool-definition-name'),
+  });
+  const hasDescription = typeof t.description === 'string' && t.description.trim().length > 0;
+  out.push({
+    id: id('description'),
+    tier: 'webmcp',
+    level: 'must',
+    title: `${t.name}: has a description`,
+    status: hasDescription ? 'pass' : 'fail',
+    ...(hasDescription ? {} : { detail: 'description is missing or empty' }),
+    spec: wspec('description', 'dom-modelcontexttool-description'),
+  });
+  if (t.inputSchema !== undefined) {
+    let ok = false;
+    try {
+      const v = JSON.parse(t.inputSchema) as unknown;
+      ok = typeof v === 'object' && v !== null && !Array.isArray(v);
+    } catch {
+      ok = false;
+    }
+    out.push({
+      id: id('input-schema'),
+      tier: 'webmcp',
+      level: 'must',
+      title: `${t.name}: input schema is a JSON Schema object`,
+      status: ok ? 'pass' : 'fail',
+      ...(ok ? {} : { detail: 'not a JSON object' }),
+      spec: wspec('inputSchema', 'dom-modelcontexttool-inputschema'),
+    });
+  }
+  const declared = Object.entries(t.annotations ?? {})
+    .filter(([, v]) => v)
+    .map(([k]) => k);
+  out.push({
+    id: id('annotations'),
+    tier: 'webmcp',
+    level: 'note',
+    title: `${t.name}: annotations`,
+    status: 'info',
+    detail:
+      t.declarative && !t.annotations
+        ? 'none: the declarative (form) API has no way to declare annotations yet (webmcp#163)'
+        : declared.length
+          ? declared.join(', ')
+          : 'none declared (all hints default to false)',
+    spec: wspec('ToolAnnotations', 'dictdef-toolannotations'),
+  });
+  return out;
 }
 
 export interface ProbeContext {
@@ -269,10 +345,13 @@ export async function probeWebMcp(ctx: ProbeContext): Promise<DiscoveryRow> {
       return row('webmcp', 'missing', { detail: 'page exposes no WebMCP API', ms });
     if (tools.length === 0)
       return row('webmcp', 'missing', { detail: 'WebMCP API present, no tools registered', ms });
-    return row('webmcp', 'found', {
-      detail: `${tools.length} ${tools.length === 1 ? 'tool' : 'tools'}: ${tools.map((t) => t.name).join(', ')}`,
-      ms,
-    });
+    return {
+      ...row('webmcp', 'found', {
+        detail: `${tools.length} ${tools.length === 1 ? 'tool' : 'tools'}: ${tools.map((t) => t.name).join(', ')}`,
+        ms,
+      }),
+      checks: tools.flatMap(webMcpToolChecks),
+    };
   } catch (e) {
     return row('webmcp', 'unreadable', {
       detail: e instanceof Error ? e.message : String(e),
