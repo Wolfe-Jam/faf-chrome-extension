@@ -186,7 +186,11 @@ describe('redirects and headers', () => {
       }
     });
     const [catalog] = await probeCatalog(ctx());
-    expect(catalog).toMatchObject({ status: 'unreadable', detail: 'redirects are not followed' });
+    expect(catalog).toMatchObject({
+      status: 'unreadable',
+      detail:
+        'it redirects to another address; redirects are not followed, so the file was not read',
+    });
   });
 
   it('a redirect loop is unreadable, not an endless wait', { timeout: 10_000 }, async () => {

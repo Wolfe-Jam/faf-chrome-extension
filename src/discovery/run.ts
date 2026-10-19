@@ -45,7 +45,13 @@ async function readInjected<T>(
     target: { tabId },
     world,
     // func is serialized into the page, so it cannot close over variables: the key goes in args.
-    func: (k: string) => (globalThis as Record<string, unknown>)[k],
+    // Read the result, then remove the global: a page must not be able to see that a check ran.
+    func: (k: string) => {
+      const g = globalThis as Record<string, unknown>;
+      const v = g[k];
+      delete g[k];
+      return v;
+    },
     args: [key],
   });
   return first?.result as T;
@@ -77,36 +83,40 @@ export async function discoverTab(
   }
   const tabId = tab.id;
 
-  let site: DiscoveryReport;
-  try {
-    site = await readInjected<DiscoveryReport>(
-      scripting,
-      tabId,
-      'probe-site.js',
-      SITE_KEY,
-      'ISOLATED'
-    );
-  } catch (e) {
+  // Both reads start together, so one click costs the longer of the two, not their sum.
+  const siteRead = readInjected<DiscoveryReport>(
+    scripting,
+    tabId,
+    'probe-site.js',
+    SITE_KEY,
+    'ISOLATED'
+  );
+  const toolsRead = withDeadline(
+    readInjected<WebMcpTool[] | null>(scripting, tabId, 'probe-webmcp.js', WEBMCP_KEY, 'MAIN'),
+    opts.webmcpTimeoutMs ?? WEBMCP_TIMEOUT_MS,
+    'the page did not list its tools in time'
+  );
+  const [siteResult, toolsResult] = await Promise.allSettled([siteRead, toolsRead]);
+
+  if (siteResult.status === 'rejected') {
+    const e = siteResult.reason;
     return {
       ok: false,
       reason: `Could not read this page: ${e instanceof Error ? e.message : String(e)}`,
     };
   }
+  const site = siteResult.value;
   if (!site || !Array.isArray(site.rows))
     return { ok: false, reason: 'The page did not return a result.' };
 
   // The page's own WebMCP API is only visible from the MAIN world. A failure here only affects that one row.
-  let tools: WebMcpTool[] | null = null;
-  let webmcpError: Error | null = null;
-  try {
-    tools = await withDeadline(
-      readInjected<WebMcpTool[] | null>(scripting, tabId, 'probe-webmcp.js', WEBMCP_KEY, 'MAIN'),
-      opts.webmcpTimeoutMs ?? WEBMCP_TIMEOUT_MS,
-      'the page did not list its tools in time'
-    );
-  } catch (e) {
-    webmcpError = e instanceof Error ? e : new Error(String(e));
-  }
+  const tools: WebMcpTool[] | null = toolsResult.status === 'fulfilled' ? toolsResult.value : null;
+  const webmcpError: Error | null =
+    toolsResult.status === 'rejected'
+      ? toolsResult.reason instanceof Error
+        ? toolsResult.reason
+        : new Error(String(toolsResult.reason))
+      : null;
 
   const webmcpRow = await probeWebMcp({
     origin: site.origin,
