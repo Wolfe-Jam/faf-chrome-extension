@@ -75,7 +75,7 @@
               <details class="checks">
                 <summary>{row.checks.filter((c) => c.level !== 'note').length} spec checks{#if row.checks.some((c) => c.level === 'note')}, with notes{/if}</summary>
                 <ul>
-                  {#each ordered(row) as c (c.id)}
+                  {#each ordered(row) as c, i (`${i}:${c.id}`)}
                     <li class={`check ${c.status}`}>
                       <span class="cmark" aria-hidden="true">{CHECK_MARK[c.status]}</span>
                       <span class="level">{c.level.toUpperCase()}</span>
