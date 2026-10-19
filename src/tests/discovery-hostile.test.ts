@@ -175,7 +175,7 @@ describe('messy but legal JSON', () => {
 });
 
 describe('redirects and headers', () => {
-  it('a catalog behind a same-origin redirect is followed', async () => {
+  it('a catalog behind a redirect is not followed: Unreadable, and it says why', async () => {
     serve((req, res) => {
       if (req.url === AI_CATALOG_PATH) {
         res.writeHead(302, { location: '/moved/catalog.json' });
@@ -186,7 +186,7 @@ describe('redirects and headers', () => {
       }
     });
     const [catalog] = await probeCatalog(ctx());
-    expect(catalog.status).toBe('found');
+    expect(catalog).toMatchObject({ status: 'unreadable', detail: 'redirects are not followed' });
   });
 
   it('a redirect loop is unreadable, not an endless wait', { timeout: 10_000 }, async () => {

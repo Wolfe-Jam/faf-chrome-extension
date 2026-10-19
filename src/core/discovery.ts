@@ -205,15 +205,27 @@ async function readCapped(
   return { text: new TextDecoder().decode(bytes), truncated };
 }
 
+/** Browsers hide a manual redirect as an opaque response (status 0); Node shows the real 3xx. */
+export function isRedirect(r: Response): boolean {
+  return r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400);
+}
+
 async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetched> {
   const t0 = Date.now();
   try {
     const r = await ctx.fetch(url, {
       method,
       credentials: 'omit',
-      redirect: 'follow',
+      // A redirect can lead to any host, past the origin limits. Never follow one.
+      redirect: 'manual',
+      // Whatever the page's own Referrer-Policy says, other hosts see only the page origin.
+      referrerPolicy: 'origin',
       signal: AbortSignal.timeout(ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     });
+    if (isRedirect(r)) {
+      await r.body?.cancel();
+      return { ok: false, error: 'redirects are not followed', ms: Date.now() - t0 };
+    }
     const { text, truncated } =
       method === 'HEAD' ? { text: '', truncated: false } : await readCapped(r, MAX_BYTES);
     return {

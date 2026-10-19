@@ -51,9 +51,23 @@ async function readInjected<T>(
   return first?.result as T;
 }
 
+/** The page's own getTools()/listTools() can never resolve; the read is cut off after this long. */
+export const WEBMCP_TIMEOUT_MS = 3000;
+
+function withDeadline<T>(p: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 export async function discoverTab(
   tab: { id?: number; url?: string },
-  scripting: ScriptingApi
+  scripting: ScriptingApi,
+  opts: { webmcpTimeoutMs?: number } = {}
 ): Promise<TabRun> {
   if (tab.id === undefined || !isCheckable(tab.url)) {
     return {
@@ -85,12 +99,10 @@ export async function discoverTab(
   let tools: WebMcpTool[] | null = null;
   let webmcpError: Error | null = null;
   try {
-    tools = await readInjected<WebMcpTool[] | null>(
-      scripting,
-      tabId,
-      'probe-webmcp.js',
-      WEBMCP_KEY,
-      'MAIN'
+    tools = await withDeadline(
+      readInjected<WebMcpTool[] | null>(scripting, tabId, 'probe-webmcp.js', WEBMCP_KEY, 'MAIN'),
+      opts.webmcpTimeoutMs ?? WEBMCP_TIMEOUT_MS,
+      'the page did not list its tools in time'
     );
   } catch (e) {
     webmcpError = e instanceof Error ? e : new Error(String(e));
