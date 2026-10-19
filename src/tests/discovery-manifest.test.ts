@@ -80,7 +80,7 @@ describe('build wiring: injected file names match what the build emits', () => {
 
   it('the build script runs every entry', () => {
     const script = (JSON.parse(read('package.json')) as { scripts: Record<string, string> })
-      .scripts['build:discovery'];
+      .scripts.build;
     for (const entry of ['popup', 'probe-site', 'probe-webmcp'])
       expect(script).toContain(`DISCOVERY_ENTRY=${entry}`);
   });

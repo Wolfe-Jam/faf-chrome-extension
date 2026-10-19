@@ -55,7 +55,7 @@ const check = (name, ok, detail = '') => {
 
 // 1. Build, so the smoke test always runs the code that would ship.
 console.log('building dist-discovery ...');
-execSync('npm run -s build:discovery', { cwd: ROOT, stdio: 'ignore' });
+execSync('npm run -s build', { cwd: ROOT, stdio: 'ignore' });
 for (const f of ['manifest.json', 'popup.html', 'popup.js', 'probe-site.js', 'probe-webmcp.js']) {
   check(`built: ${f}`, existsSync(join(DIST, f)));
 }
