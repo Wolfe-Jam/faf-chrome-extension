@@ -132,6 +132,8 @@ export interface ProbeContext {
   fetch: typeof fetch;
   /** Reads the page's WebMCP tools. Resolves null when the page exposes no WebMCP API. */
   webmcp?: () => Promise<WebMcpTool[] | null>;
+  /** Waits before a retry; tests pass a no-op. Default: setTimeout. */
+  sleep?: (ms: number) => Promise<void>;
   /** Runs the spec checks for one Server Card and its catalog (read-only). */
   checkSite?: (target: { cardUrl: string; catalogUrl: string }) => Promise<SpecCheck[]>;
   timeoutMs?: number;
@@ -397,6 +399,9 @@ export function parseGithubRepo(pageUrl: string): { owner: string; repo: string 
 }
 
 /** Same-origin HEAD on github.com's blob route: 200 present, 404 absent. No extra host permission. */
+/** Waits before each retry after GitHub answers 429 (then gives up and says so). */
+export const GITHUB_RETRY_MS = [1500, 3000];
+
 export async function probeGithub(ctx: ProbeContext, pageUrl: string): Promise<DiscoveryRow[]> {
   const gh = parseGithubRepo(pageUrl);
   if (!gh) return [];
@@ -405,13 +410,32 @@ export async function probeGithub(ctx: ProbeContext, pageUrl: string): Promise<D
     ['agents-md', 'AGENTS.md'],
     ['project-faf', 'project.faf'],
   ];
-  return Promise.all(
-    files.map(async ([id, name]) => {
-      const url = base + name;
-      const f = await get(ctx, url, 'HEAD');
-      return notFound(id, url, f) ?? row(id, 'found', { url, ms: f.ms });
-    })
-  );
+  const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const rows: DiscoveryRow[] = [];
+  // One file at a time: the repo page already makes many requests, and GitHub rate-limits bursts.
+  for (const [id, name] of files) {
+    const url = base + name;
+    let f = await get(ctx, url, 'HEAD');
+    let ms = f.ms;
+    for (const wait of GITHUB_RETRY_MS) {
+      if (!(f.ok && f.status === 429)) break;
+      await sleep(wait);
+      f = await get(ctx, url, 'HEAD');
+      ms += wait + f.ms;
+    }
+    if (f.ok && f.status === 429) {
+      rows.push(
+        row(id, 'unreadable', {
+          url,
+          detail: 'GitHub is rate-limiting requests (HTTP 429); click Check again in a moment',
+          ms,
+        })
+      );
+      continue;
+    }
+    rows.push(notFound(id, url, { ...f, ms }) ?? row(id, 'found', { url, ms }));
+  }
+  return rows;
 }
 
 export interface DiscoveryReport {
