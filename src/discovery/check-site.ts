@@ -8,7 +8,7 @@
  * "skip" with a pointer to the web checker, which reads them server-side.
  */
 
-import type { SpecCheck } from '@/core/discovery';
+import { type SpecCheck, isRedirect } from '@/core/discovery';
 import { SPEC_REFS, checkDiscovery, validateCard } from 'mcp-server-card-check/browser';
 
 const WEB_CHECKER = 'servercard.wolfejam.dev';
@@ -17,11 +17,25 @@ const HEADER_CHECKS = /^hosting\.(cors-|etag)/;
 // One click may cause at most this many requests, whatever the site's catalog lists.
 export const MAX_REQUESTS = 30;
 
+/** Only these methods ever leave the extension. OPTIONS is the checker's CORS preflight check. */
+const ALLOWED_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 export function readOnlyFetch(base: typeof fetch): typeof fetch {
-  return (input, init) =>
-    (init?.method ?? 'GET').toUpperCase() === 'POST'
-      ? Promise.reject(new Error('read-only: no POST from the extension'))
-      : base(input, { ...init, credentials: 'omit' });
+  return (input, init) => {
+    const method = (
+      init?.method ?? (input instanceof Request ? input.method : 'GET')
+    ).toUpperCase();
+    if (!ALLOWED_METHODS.has(method))
+      return Promise.reject(new Error(`read-only: no ${method} from the extension`));
+    // Set last so nothing the checker passes can undo them: no cookies, no redirects (a redirect
+    // can leave the origin limits behind), and other hosts see only the page origin.
+    return base(input, {
+      ...init,
+      credentials: 'omit',
+      redirect: 'manual',
+      referrerPolicy: 'origin',
+    });
+  };
 }
 
 /**
@@ -29,10 +43,17 @@ export function readOnlyFetch(base: typeof fetch): typeof fetch {
  * the origin of the Server Card being checked, and no more than MAX_REQUESTS in all. Anything
  * else is refused before it leaves the browser and recorded in `refused`.
  */
-export function boundedFetch(base: typeof fetch, allowed: string[], max = MAX_REQUESTS) {
+export function boundedFetch(
+  base: typeof fetch,
+  allowed: string[],
+  max = MAX_REQUESTS,
+  signal?: AbortSignal
+) {
   const refused: string[] = [];
+  const redirected: string[] = [];
+  const reached: string[] = [];
   let sent = 0;
-  const bounded = ((input, init) => {
+  const bounded = (async (input, init) => {
     const url = String(input instanceof Request ? input.url : input);
     let origin = '';
     try {
@@ -40,27 +61,42 @@ export function boundedFetch(base: typeof fetch, allowed: string[], max = MAX_RE
     } catch {
       /* unparseable: refused below */
     }
-    if (!allowed.includes(origin) || sent >= max) {
+    if (!allowed.includes(origin) || sent >= max || signal?.aborted) {
       refused.push(url);
-      return Promise.reject(new Error('refused: outside what this check may read'));
+      throw new Error('refused: outside what this check may read');
     }
     sent++;
-    return base(input, init);
+    reached.push(url);
+    const res = await base(input, init);
+    if (isRedirect(res)) redirected.push(url);
+    return res;
   }) as typeof fetch;
-  return { fetch: bounded, refused };
+  return { fetch: bounded, refused, redirected, reached };
 }
 
-export function makeCheckSite(pageOrigin: string, base: typeof fetch, timeoutMs = 8000) {
+export function makeCheckSite(
+  pageOrigin: string,
+  base: typeof fetch,
+  timeoutMs = 8000,
+  maxRequests = MAX_REQUESTS
+) {
   return async ({
     cardUrl,
     catalogUrl,
-  }: { cardUrl: string; catalogUrl: string }): Promise<SpecCheck[]> => {
+    signal,
+  }: { cardUrl: string; catalogUrl: string; signal?: AbortSignal }): Promise<SpecCheck[]> => {
     const crossOrigin = new URL(cardUrl).origin !== pageOrigin;
-    const bounded = boundedFetch(readOnlyFetch(base), [pageOrigin, new URL(cardUrl).origin]);
+    // An opaque origin ("null", from a data: or blob: URL) is never allowed.
+    const allowed = [pageOrigin, new URL(cardUrl).origin].filter((o) => o !== 'null');
+    const bounded = boundedFetch(readOnlyFetch(base), allowed, maxRequests, signal);
     const report = await checkDiscovery(
       { mcpUrl: cardUrl.replace(/\/server-card\/?$/, ''), cardUrl, catalogUrl },
       { fetch: bounded.fetch, validateCard, rawStatus: async () => null, timeoutMs }
     );
+    const cardRedirected = bounded.redirected.includes(cardUrl);
+    // Refused only counts if the card was never read: the checker asks for the card URL again later
+    // (as a catalog link), and that second request can hit the cap after the card was read fine.
+    const cardRefused = bounded.refused.includes(cardUrl) && !bounded.reached.includes(cardUrl);
     return report.results
       .filter((r) => r.tier === 'card' || r.tier === 'hosting' || r.tier === 'catalog')
       .map((r) => {
@@ -77,9 +113,22 @@ export function makeCheckSite(pageOrigin: string, base: typeof fetch, timeoutMs 
           check.status = 'skip';
           check.detail = `the card is on another origin, so its headers can't be read from this page; check it on ${WEB_CHECKER}`;
         }
-        if (r.id === 'catalog.links' && bounded.refused.length) {
+        if ((cardRedirected || cardRefused) && (r.tier === 'card' || r.tier === 'hosting')) {
           check.status = 'skip';
-          check.detail = `${bounded.refused.length} entry URL${bounded.refused.length === 1 ? ' is' : 's are'} on other hosts or over the ${MAX_REQUESTS}-request limit, so they were not requested; check them on ${WEB_CHECKER}`;
+          check.detail = cardRedirected
+            ? `the card URL redirects, and redirects are not followed; check it on ${WEB_CHECKER}`
+            : `the request limit or the origin rule stopped this check; check it on ${WEB_CHECKER}`;
+        }
+        if (r.id === 'catalog.links' && (bounded.refused.length || bounded.redirected.length)) {
+          const why: string[] = [];
+          if (bounded.refused.length)
+            why.push(
+              `${bounded.refused.length} entry URL${bounded.refused.length === 1 ? ' is' : 's are'} on other hosts or over the ${MAX_REQUESTS}-request limit`
+            );
+          if (bounded.redirected.length)
+            why.push(`${bounded.redirected.length} redirect, and redirects are not followed`);
+          check.status = 'skip';
+          check.detail = `${why.join('; ')}, so they were not checked; check them on ${WEB_CHECKER}`;
         }
         return check;
       });

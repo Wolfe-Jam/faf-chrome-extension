@@ -51,8 +51,12 @@ export interface DiscoveryRow {
 export interface WebMcpTool {
   name: string;
   description?: string;
-  /** The input schema as the page reports it (stringified). */
+  /** The input schema as the page reports it (stringified, cut at 20,000 characters). */
   inputSchema?: string;
+  /** Judged by the probe on the whole schema, before it was cut. */
+  inputSchemaIsObject?: boolean;
+  /** The schema was cut and could not be judged. */
+  inputSchemaTruncated?: boolean;
   annotations?: Record<string, boolean> | null;
   /** Declared by a <form toolname> rather than registerTool(). */
   declarative?: boolean;
@@ -90,20 +94,29 @@ export function webMcpToolChecks(t: WebMcpTool): SpecCheck[] {
     spec: wspec('description', 'dom-modelcontexttool-description'),
   });
   if (t.inputSchema !== undefined) {
-    let ok = false;
-    try {
-      const v = JSON.parse(t.inputSchema) as unknown;
-      ok = typeof v === 'object' && v !== null && !Array.isArray(v);
-    } catch {
-      ok = false;
+    let ok: boolean | null;
+    if (t.inputSchemaIsObject !== undefined) ok = t.inputSchemaIsObject;
+    else if (t.inputSchemaTruncated) ok = null;
+    else {
+      try {
+        const v = JSON.parse(t.inputSchema) as unknown;
+        ok = typeof v === 'object' && v !== null && !Array.isArray(v);
+      } catch {
+        ok = false;
+      }
     }
     out.push({
       id: id('input-schema'),
       tier: 'webmcp',
       level: 'must',
-      title: `${t.name}: input schema is a JSON Schema object`,
-      status: ok ? 'pass' : 'fail',
-      ...(ok ? {} : { detail: 'not a JSON object' }),
+      // Only the shape is checked here; the schema is not validated as JSON Schema.
+      title: `${t.name}: input schema is a JSON object`,
+      status: ok === null ? 'skip' : ok ? 'pass' : 'fail',
+      ...(ok === null
+        ? { detail: 'schema too large to judge here' }
+        : ok
+          ? {}
+          : { detail: 'not a JSON object' }),
       spec: wspec('inputSchema', 'dom-modelcontexttool-inputschema'),
     });
   }
@@ -135,9 +148,31 @@ export interface ProbeContext {
   /** Waits before a retry; tests pass a no-op. Default: setTimeout. */
   sleep?: (ms: number) => Promise<void>;
   /** Runs the spec checks for one Server Card and its catalog (read-only). */
-  checkSite?: (target: { cardUrl: string; catalogUrl: string }) => Promise<SpecCheck[]>;
+  checkSite?: (target: {
+    cardUrl: string;
+    catalogUrl: string;
+    signal?: AbortSignal;
+  }) => Promise<SpecCheck[]>;
   timeoutMs?: number;
+  /** The whole click is cut off after this long. Default CLICK_DEADLINE_MS. */
+  deadlineMs?: number;
+  /** Aborted at the click deadline; set by runChecks. */
+  signal?: AbortSignal;
 }
+
+/** One click, all probes: after this the unfinished rows read Unreadable. */
+export const CLICK_DEADLINE_MS = 15_000;
+/** A page can register any number of WebMCP tools; only this many are listed and checked. */
+export const MAX_TOOLS = 100;
+const RAN_OUT_OF_TIME = 'the check ran out of time';
+
+/** location.origin is "null" in a sandboxed document; the URL still says where the page is. */
+export function pageOrigin(loc: { href: string; origin: string }): string {
+  return loc.origin && loc.origin !== 'null' ? loc.origin : new URL(loc.href).origin;
+}
+
+/** An HTML page where a data file was expected (a single-page app answering 200 for every path). */
+const looksLikeHtml = (text: string) => /^\s*<(!doctype|html|head|body)\b/i.test(text);
 
 export const SPEC: Record<Surface, SpecRef> = {
   'ai-catalog': { label: 'AI Catalog', url: 'https://ai-catalog.io/' },
@@ -205,15 +240,33 @@ async function readCapped(
   return { text: new TextDecoder().decode(bytes), truncated };
 }
 
+/** Browsers hide a manual redirect as an opaque response (status 0); Node shows the real 3xx. */
+export function isRedirect(r: Response): boolean {
+  return r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400);
+}
+
 async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetched> {
   const t0 = Date.now();
+  if (ctx.signal?.aborted) return { ok: false, error: RAN_OUT_OF_TIME, ms: 0 };
+  // One signal for this request: its own timeout, or the click deadline, whichever comes first.
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const onDeadline = () => ac.abort();
+  ctx.signal?.addEventListener('abort', onDeadline);
   try {
     const r = await ctx.fetch(url, {
       method,
       credentials: 'omit',
-      redirect: 'follow',
-      signal: AbortSignal.timeout(ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+      // A redirect can lead to any host, past the origin limits. Never follow one.
+      redirect: 'manual',
+      // Whatever the page's own Referrer-Policy says, other hosts see only the page origin.
+      referrerPolicy: 'origin',
+      signal: ac.signal,
     });
+    if (isRedirect(r)) {
+      await r.body?.cancel();
+      return { ok: false, error: 'redirects are not followed', ms: Date.now() - t0 };
+    }
     const { text, truncated } =
       method === 'HEAD' ? { text: '', truncated: false } : await readCapped(r, MAX_BYTES);
     return {
@@ -225,7 +278,11 @@ async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetc
       ms: Date.now() - t0,
     };
   } catch (e) {
+    if (ctx.signal?.aborted) return { ok: false, error: RAN_OUT_OF_TIME, ms: Date.now() - t0 };
     return { ok: false, error: e instanceof Error ? e.message : String(e), ms: Date.now() - t0 };
+  } finally {
+    clearTimeout(timer);
+    ctx.signal?.removeEventListener('abort', onDeadline);
   }
 }
 
@@ -256,6 +313,17 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
     return [
       row('ai-catalog', 'unreadable', { url, detail: 'larger than 1 MiB', ms: f.ms }),
       row('server-card', 'skipped', { detail: 'catalog not readable' }),
+    ];
+  }
+
+  if (looksLikeHtml(f.text)) {
+    return [
+      row('ai-catalog', 'missing', {
+        url,
+        detail: 'answered 200 with a web page, not a catalog',
+        ms: f.ms,
+      }),
+      row('server-card', 'skipped', { detail: 'needs an AI Catalog to list cards' }),
     ];
   }
 
@@ -292,8 +360,13 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
       });
   if (cards.length && ctx.checkSite && typeof cards[0].url === 'string') {
     try {
-      const cardUrl = new URL(cards[0].url, url).href;
-      const checks = await ctx.checkSite({ cardUrl, catalogUrl: url });
+      const card = new URL(cards[0].url, url);
+      if (card.protocol !== 'http:' && card.protocol !== 'https:') {
+        cardRow.detail = `${cardRow.detail}; its URL is not http(s), so it was not checked`;
+        return [catalogRow, cardRow];
+      }
+      const cardUrl = card.href;
+      const checks = await ctx.checkSite({ cardUrl, catalogUrl: url, signal: ctx.signal });
       catalogRow.checks = checks.filter((c) => c.tier === 'catalog');
       cardRow.checks = checks.filter((c) => c.tier !== 'catalog');
       cardRow.url = cardUrl;
@@ -323,8 +396,7 @@ export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {
   if (!f.ok) return row('llms-txt', 'unreadable', { url });
   // A soft 404 answers 200 with an HTML page. Judge the body, not the header: a real llms.txt
   // served as text/html (a common misconfiguration) is still an llms.txt.
-  const looksHtml = /^\s*<(!doctype|html|head|body)\b/i.test(f.text);
-  if (looksHtml || !f.text.trim()) {
+  if (looksLikeHtml(f.text) || !f.text.trim()) {
     return row('llms-txt', 'missing', {
       url,
       detail: 'answered 200 with a web page, not llms.txt',
@@ -337,19 +409,57 @@ export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {
   return row('llms-txt', 'found', { url, detail, ms: f.ms });
 }
 
+const asText = (v: unknown, max: number): string => {
+  try {
+    return String(v ?? '').slice(0, max);
+  } catch {
+    return '';
+  }
+};
+
+/** One tool as the page reported it, reduced to bounded, well-typed fields. */
+function cleanTool(raw: unknown): WebMcpTool {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const ann =
+    o.annotations && typeof o.annotations === 'object'
+      ? Object.fromEntries(
+          Object.entries(o.annotations as Record<string, unknown>)
+            .filter(([, v]) => typeof v === 'boolean')
+            .slice(0, 20)
+        )
+      : null;
+  return {
+    name: asText(o.name, 200),
+    ...(typeof o.description === 'string' ? { description: o.description.slice(0, 2000) } : {}),
+    ...(typeof o.inputSchema === 'string' ? { inputSchema: o.inputSchema.slice(0, 20_000) } : {}),
+    ...(typeof o.inputSchemaIsObject === 'boolean'
+      ? { inputSchemaIsObject: o.inputSchemaIsObject }
+      : {}),
+    ...(o.inputSchemaTruncated === true ? { inputSchemaTruncated: true } : {}),
+    annotations: ann as Record<string, boolean> | null,
+    declarative: o.declarative === true,
+  };
+}
+
 export async function probeWebMcp(ctx: ProbeContext): Promise<DiscoveryRow> {
   if (!ctx.webmcp) return row('webmcp', 'skipped', { detail: 'page reader not available' });
   const t0 = Date.now();
   try {
-    const tools = await ctx.webmcp();
+    const raw = await ctx.webmcp();
     const ms = Date.now() - t0;
-    if (tools === null)
-      return row('webmcp', 'missing', { detail: 'page exposes no WebMCP API', ms });
-    if (tools.length === 0)
+    if (raw === null) return row('webmcp', 'missing', { detail: 'page exposes no WebMCP API', ms });
+    // The page controls this value: it may be anything, and arbitrarily large.
+    if (!Array.isArray(raw)) throw new Error('the page returned a tool list that is not an array');
+    if (raw.length === 0)
       return row('webmcp', 'missing', { detail: 'WebMCP API present, no tools registered', ms });
+    const tools = raw.slice(0, MAX_TOOLS).map(cleanTool);
+    const names = tools.map((t) => t.name.slice(0, 60)).join(', ');
     return {
       ...row('webmcp', 'found', {
-        detail: `${tools.length} ${tools.length === 1 ? 'tool' : 'tools'}: ${tools.map((t) => t.name).join(', ')}`,
+        detail:
+          raw.length > MAX_TOOLS
+            ? `${raw.length} tools; the first ${MAX_TOOLS} are checked: ${names}`
+            : `${raw.length} ${raw.length === 1 ? 'tool' : 'tools'}: ${names}`,
         ms,
       }),
       checks: tools.flatMap(webMcpToolChecks),
@@ -448,16 +558,37 @@ export interface DiscoveryReport {
 /** All probes in parallel. Row order is stable: site surfaces, then GitHub surfaces. */
 export async function runChecks(ctx: ProbeContext, pageUrl: string): Promise<DiscoveryReport> {
   const t0 = Date.now();
-  const [catalog, llms, webmcp, github] = await Promise.all([
-    probeCatalog(ctx),
-    probeLlmsTxt(ctx),
-    probeWebMcp(ctx),
-    probeGithub(ctx, pageUrl),
-  ]);
-  return {
-    origin: ctx.origin,
-    pageUrl,
-    rows: [...catalog, llms, webmcp, ...github],
-    ms: Date.now() - t0,
-  };
+  // One deadline for the whole click: unfinished probes are abandoned and their rows say so.
+  const ac = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      ac.abort();
+      resolve();
+    }, ctx.deadlineMs ?? CLICK_DEADLINE_MS);
+  });
+  const c: ProbeContext = { ...ctx, signal: ac.signal };
+  const guard = <T>(p: Promise<T>, onExpiry: () => T) => Promise.race([p, expired.then(onExpiry)]);
+  const late = (id: Surface) => row(id, 'unreadable', { detail: RAN_OUT_OF_TIME });
+  try {
+    const [catalog, llms, webmcp, github] = await Promise.all([
+      guard(probeCatalog(c), () => [
+        late('ai-catalog'),
+        row('server-card', 'skipped', { detail: 'catalog not checked' }),
+      ]),
+      guard(probeLlmsTxt(c), () => late('llms-txt')),
+      guard(probeWebMcp(c), () => late('webmcp')),
+      guard(probeGithub(c, pageUrl), () =>
+        parseGithubRepo(pageUrl) ? [late('agents-md'), late('project-faf')] : []
+      ),
+    ]);
+    return {
+      origin: ctx.origin,
+      pageUrl,
+      rows: [...catalog, llms, webmcp, ...github],
+      ms: Date.now() - t0,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }

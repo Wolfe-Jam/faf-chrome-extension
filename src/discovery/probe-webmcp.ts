@@ -23,14 +23,40 @@ interface TestingLike {
 
 const MAX_TEXT = 2000;
 
-function schemaOf(v: unknown): string | undefined {
-  if (v === undefined || v === null) return undefined;
-  if (typeof v === 'string') return v.slice(0, 20_000);
-  try {
-    return JSON.stringify(v).slice(0, 20_000);
-  } catch {
-    return '<unserializable>';
+const SCHEMA_MAX = 20_000;
+
+/** Judges the schema's shape on the whole value, then ships at most SCHEMA_MAX characters of it. */
+function schemaInfo(v: unknown): {
+  inputSchema?: string;
+  inputSchemaIsObject?: boolean;
+  inputSchemaTruncated?: boolean;
+} {
+  if (v === undefined || v === null) return {};
+  let text: string;
+  let isObject: boolean | undefined;
+  if (typeof v === 'string') {
+    text = v;
+    if (v.length <= 1_000_000) {
+      try {
+        const p = JSON.parse(v) as unknown;
+        isObject = typeof p === 'object' && p !== null && !Array.isArray(p);
+      } catch {
+        isObject = false;
+      }
+    }
+  } else {
+    try {
+      text = JSON.stringify(v) ?? '';
+    } catch {
+      return { inputSchema: '<unserializable>', inputSchemaIsObject: false };
+    }
+    isObject = typeof v === 'object' && !Array.isArray(v);
   }
+  return {
+    inputSchema: text.slice(0, SCHEMA_MAX),
+    ...(isObject === undefined ? {} : { inputSchemaIsObject: isObject }),
+    ...(text.length > SCHEMA_MAX ? { inputSchemaTruncated: true } : {}),
+  };
 }
 
 async function readTools() {
@@ -63,7 +89,7 @@ async function readTools() {
     return {
       name,
       description: typeof t.description === 'string' ? t.description.slice(0, MAX_TEXT) : undefined,
-      inputSchema: schemaOf(t.inputSchema),
+      ...schemaInfo(t.inputSchema),
       annotations,
       declarative: declarative.has(name),
     };
@@ -71,3 +97,6 @@ async function readTools() {
 }
 
 (globalThis as Record<string, unknown>).__fafAgentDiscoveryWebMcp = readTools();
+
+// Makes this file a module so a test can import it; the build still emits one self-running script.
+export {};

@@ -81,7 +81,9 @@ describe('probeCatalog', () => {
 
   it('200 that is not JSON is unreadable, not found', async () => {
     const [catalog] = await probeCatalog(
-      ctx({ [ORIGIN + AI_CATALOG_PATH]: { status: 200, type: 'text/html', body: '<html>' } })
+      ctx({
+        [ORIGIN + AI_CATALOG_PATH]: { status: 200, type: 'text/plain', body: 'oops, not json' },
+      })
     );
     expect(catalog).toMatchObject({ status: 'unreadable', detail: 'answered 200 but not JSON' });
   });
