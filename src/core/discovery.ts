@@ -240,9 +240,12 @@ async function readCapped(
   return { text: new TextDecoder().decode(bytes), truncated };
 }
 
+/** Only these statuses redirect. 300, 304 (Not Modified, the answer to a conditional GET) and 305 do not. */
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
 /** Browsers hide a manual redirect as an opaque response (status 0); Node shows the real 3xx. */
 export function isRedirect(r: Response): boolean {
-  return r.type === 'opaqueredirect' || (r.status >= 300 && r.status < 400);
+  return r.type === 'opaqueredirect' || REDIRECT_STATUSES.has(r.status);
 }
 
 async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetched> {
