@@ -8,9 +8,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite build --mode development --watch",
-    "build": "vite build --config vite.content.config.ts && vite build --config vite.popup.config.ts && vite build --config vite.sw.config.ts",
-    "build:prod": "NODE_ENV=production vite build --config vite.content.config.ts && NODE_ENV=production vite build --config vite.popup.config.ts && NODE_ENV=production vite build --config vite.sw.config.ts",
+    "build": "rm -rf dist-discovery && DISCOVERY_ENTRY=popup vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-site vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-webmcp vite build --config vite.discovery.config.ts && cp -R public/icons dist-discovery/icons",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
@@ -37,7 +35,6 @@
     "release:patch": "npm version patch && npm run deploy:prod",
     "release:minor": "npm version minor && npm run deploy:prod",
     "release:major": "npm version major && npm run deploy:prod",
-    "build:discovery": "rm -rf dist-discovery && DISCOVERY_ENTRY=popup vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-site vite build --config vite.discovery.config.ts && DISCOVERY_ENTRY=probe-webmcp vite build --config vite.discovery.config.ts && cp -R public/icons dist-discovery/icons",
     "smoke:discovery": "node scripts/smoke-discovery.mjs"
   },
   "devDependencies": {
@@ -59,7 +56,6 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@faf/engine": "file:vendor/faf-engine-3.1.0.tgz",
     "mcp-server-card-check": "^0.4.1"
   }
 }
