@@ -165,6 +165,8 @@ export const CLICK_DEADLINE_MS = 15_000;
 /** A page can register any number of WebMCP tools; only this many are listed and checked. */
 export const MAX_TOOLS = 100;
 const RAN_OUT_OF_TIME = 'the check ran out of time';
+const REDIRECT_NOTE =
+  'it redirects to another address; redirects are not followed, so the file was not read';
 
 /** location.origin is "null" in a sandboxed document; the URL still says where the page is. */
 export function pageOrigin(loc: { href: string; origin: string }): string {
@@ -253,7 +255,14 @@ async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetc
   if (ctx.signal?.aborted) return { ok: false, error: RAN_OUT_OF_TIME, ms: 0 };
   // One signal for this request: its own timeout, or the click deadline, whichever comes first.
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const limit = ctx.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const timer = setTimeout(
+    () =>
+      ac.abort(
+        new Error(`no answer within ${limit >= 1000 ? `${limit / 1000} s` : `${limit} ms`}`)
+      ),
+    limit
+  );
   const onDeadline = () => ac.abort();
   ctx.signal?.addEventListener('abort', onDeadline);
   try {
@@ -268,7 +277,7 @@ async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetc
     });
     if (isRedirect(r)) {
       await r.body?.cancel();
-      return { ok: false, error: 'redirects are not followed', ms: Date.now() - t0 };
+      return { ok: false, error: REDIRECT_NOTE, ms: Date.now() - t0 };
     }
     const { text, truncated } =
       method === 'HEAD' ? { text: '', truncated: false } : await readCapped(r, MAX_BYTES);
@@ -282,7 +291,15 @@ async function get(ctx: ProbeContext, url: string, method = 'GET'): Promise<Fetc
     };
   } catch (e) {
     if (ctx.signal?.aborted) return { ok: false, error: RAN_OUT_OF_TIME, ms: Date.now() - t0 };
-    return { ok: false, error: e instanceof Error ? e.message : String(e), ms: Date.now() - t0 };
+    // Chrome's own abort text says nothing; our timer gave a reason.
+    const reason = ac.signal.reason;
+    const error =
+      ac.signal.aborted && reason instanceof Error
+        ? reason.message
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    return { ok: false, error, ms: Date.now() - t0 };
   } finally {
     clearTimeout(timer);
     ctx.signal?.removeEventListener('abort', onDeadline);
@@ -373,6 +390,9 @@ export async function probeCatalog(ctx: ProbeContext): Promise<DiscoveryRow[]> {
       catalogRow.checks = checks.filter((c) => c.tier === 'catalog');
       cardRow.checks = checks.filter((c) => c.tier !== 'catalog');
       cardRow.url = cardUrl;
+      // "Published" means listed in the catalog; say so when the card itself was never read.
+      if (cardRow.checks.length > 0 && cardRow.checks.every((c) => c.status === 'skip'))
+        cardRow.detail = `${cardRow.detail}; the card itself was not read (its checks were skipped)`;
       if (cards.length > 1)
         cardRow.detail = `${cards.length} listed in the catalog; the first is checked`;
     } catch (e) {
@@ -546,7 +566,10 @@ export async function probeGithub(ctx: ProbeContext, pageUrl: string): Promise<D
       );
       continue;
     }
-    rows.push(notFound(id, url, { ...f, ms }) ?? row(id, 'found', { url, ms }));
+    const result = notFound(id, url, { ...f, ms });
+    if (result?.status === 'missing')
+      result.detail = 'not in the public repository (checked without your sign-in)';
+    rows.push(result ?? row(id, 'found', { url, ms }));
   }
   return rows;
 }

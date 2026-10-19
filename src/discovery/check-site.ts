@@ -43,6 +43,19 @@ export function readOnlyFetch(base: typeof fetch): typeof fetch {
  * the origin of the Server Card being checked, and no more than MAX_REQUESTS in all. Anything
  * else is refused before it leaves the browser and recorded in `refused`.
  */
+/** Joins two abort signals without AbortSignal.any (Chrome 116+): aborts when either does. */
+function eitherSignal(a?: AbortSignal | null, b?: AbortSignal | null): AbortSignal | undefined {
+  if (!a && !b) return undefined;
+  if (!a || !b) return (a ?? b) as AbortSignal;
+  const ac = new AbortController();
+  const stop = (from: AbortSignal) => () => ac.abort(from.reason);
+  for (const sig of [a, b]) {
+    if (sig.aborted) ac.abort(sig.reason);
+    else sig.addEventListener('abort', stop(sig), { once: true });
+  }
+  return ac.signal;
+}
+
 export function boundedFetch(
   base: typeof fetch,
   allowed: string[],
@@ -67,11 +80,27 @@ export function boundedFetch(
     }
     sent++;
     reached.push(url);
-    const res = await base(input, init);
+    // The click deadline also stops a request the checker library already started.
+    const joined = eitherSignal(init?.signal, signal);
+    const res = await base(input, joined ? { ...init, signal: joined } : init);
     if (isRedirect(res)) redirected.push(url);
     return res;
   }) as typeof fetch;
   return { fetch: bounded, refused, redirected, reached };
+}
+
+/**
+ * The two guards in the right order. readOnlyFetch is the OUTER one, so a refused method (the
+ * checker's transport tier tries POSTs) is rejected before boundedFetch counts it as a request.
+ */
+export function guardedFetch(
+  base: typeof fetch,
+  allowed: string[],
+  max = MAX_REQUESTS,
+  signal?: AbortSignal
+) {
+  const bounded = boundedFetch(base, allowed, max, signal);
+  return { ...bounded, fetch: readOnlyFetch(bounded.fetch) };
 }
 
 export function makeCheckSite(
@@ -88,7 +117,7 @@ export function makeCheckSite(
     const crossOrigin = new URL(cardUrl).origin !== pageOrigin;
     // An opaque origin ("null", from a data: or blob: URL) is never allowed.
     const allowed = [pageOrigin, new URL(cardUrl).origin].filter((o) => o !== 'null');
-    const bounded = boundedFetch(readOnlyFetch(base), allowed, maxRequests, signal);
+    const bounded = guardedFetch(base, allowed, maxRequests, signal);
     const report = await checkDiscovery(
       { mcpUrl: cardUrl.replace(/\/server-card\/?$/, ''), cardUrl, catalogUrl },
       { fetch: bounded.fetch, validateCard, rawStatus: async () => null, timeoutMs }
@@ -97,6 +126,8 @@ export function makeCheckSite(
     // Refused only counts if the card was never read: the checker asks for the card URL again later
     // (as a catalog link), and that second request can hit the cap after the card was read fine.
     const cardRefused = bounded.refused.includes(cardUrl) && !bounded.reached.includes(cardUrl);
+    // A later request to the card (preflight, conditional GET) that the limit refused is not a failure.
+    const laterCardRequestRefused = bounded.refused.includes(cardUrl) && !cardRefused;
     return report.results
       .filter((r) => r.tier === 'card' || r.tier === 'hosting' || r.tier === 'catalog')
       .map((r) => {
@@ -119,14 +150,24 @@ export function makeCheckSite(
             ? `the card URL redirects, and redirects are not followed; check it on ${WEB_CHECKER}`
             : `the request limit or the origin rule stopped this check; check it on ${WEB_CHECKER}`;
         }
+        if (laterCardRequestRefused && r.tier === 'hosting' && check.status === 'fail') {
+          check.status = 'skip';
+          check.detail = `the request limit stopped this check; check it on ${WEB_CHECKER}`;
+        }
         if (r.id === 'catalog.links' && (bounded.refused.length || bounded.redirected.length)) {
           const why: string[] = [];
-          if (bounded.refused.length)
+          const nRef = bounded.refused.length;
+          const nRed = bounded.redirected.length;
+          if (nRef)
             why.push(
-              `${bounded.refused.length} entry URL${bounded.refused.length === 1 ? ' is' : 's are'} on other hosts or over the ${MAX_REQUESTS}-request limit`
+              `${nRef} entry URL${nRef === 1 ? ' is' : 's are'} on other hosts or over the ${maxRequests}-request limit`
             );
-          if (bounded.redirected.length)
-            why.push(`${bounded.redirected.length} redirect, and redirects are not followed`);
+          if (nRed)
+            why.push(
+              nRed === 1
+                ? '1 entry URL redirects, and redirects are not followed'
+                : `${nRed} entry URLs redirect, and redirects are not followed`
+            );
           check.status = 'skip';
           check.detail = `${why.join('; ')}, so they were not checked; check them on ${WEB_CHECKER}`;
         }
