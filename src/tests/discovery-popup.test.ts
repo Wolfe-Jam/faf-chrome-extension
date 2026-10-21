@@ -286,8 +286,12 @@ describe('2.0.1 polish', () => {
     };
     run.mockResolvedValue({ ok: true, report: repoReport });
     await open();
-    await settle(() => expect(target.querySelector('li.group')?.textContent).toBe('Wolfe-Jam/faf-skills'));
-    const items = [...target.querySelectorAll(':scope main > ul > li, main > ul > li')].map((li) => li.textContent ?? '');
+    await settle(() =>
+      expect(target.querySelector('li.group')?.textContent).toBe('Wolfe-Jam/faf-skills')
+    );
+    const items = [...target.querySelectorAll(':scope main > ul > li, main > ul > li')].map(
+      (li) => li.textContent ?? ''
+    );
     const at = items.findIndex((t) => t === 'Wolfe-Jam/faf-skills');
     expect(items[at + 1]).toContain('AGENTS.md');
   });
@@ -299,4 +303,3 @@ describe('2.0.1 polish', () => {
     expect(target.querySelector('li.group')).toBeNull();
   });
 });
-
