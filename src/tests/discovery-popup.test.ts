@@ -237,7 +237,7 @@ describe('spec checks under a row (step 3d)', () => {
     await open();
     await settle(() => expect(target.querySelectorAll('.status')).toHaveLength(2));
     const [cardPill, llmsPill] = [...target.querySelectorAll('.status')];
-    expect(cardPill.textContent).toBe('Published · 2 issues');
+    expect(cardPill.textContent).toBe('Published · 1 MUST · 1 SHOULD');
     expect(cardPill.classList.contains('warn')).toBe(true);
     expect(llmsPill.textContent).toBe('Published');
     expect(llmsPill.classList.contains('warn')).toBe(false);
@@ -264,3 +264,39 @@ describe('spec checks under a row (step 3d)', () => {
     expect(target.querySelectorAll('li.check a[href^="https://spec.example/"]')).toHaveLength(4);
   });
 });
+
+describe('2.0.1 polish', () => {
+  it('a slow check reads in seconds', async () => {
+    run.mockResolvedValue({ ok: true, report: { ...report, ms: 4628 } });
+    await open();
+    await settle(() => expect(text()).toContain('4.6 s'));
+    expect(text()).not.toContain('4628 ms');
+  });
+
+  it('on a GitHub repo page, the repo rows sit under the repo name', async () => {
+    const repoReport: DiscoveryReport = {
+      origin: 'https://github.com',
+      pageUrl: 'https://github.com/Wolfe-Jam/faf-skills',
+      ms: 42,
+      rows: [
+        { id: 'llms-txt', title: 'llms.txt', status: 'found', spec: spec('llms.txt') },
+        { id: 'agents-md', title: 'AGENTS.md', status: 'missing', spec: spec('AGENTS.md') },
+        { id: 'project-faf', title: 'project.faf', status: 'found', spec: spec('project.faf') },
+      ],
+    };
+    run.mockResolvedValue({ ok: true, report: repoReport });
+    await open();
+    await settle(() => expect(target.querySelector('li.group')?.textContent).toBe('Wolfe-Jam/faf-skills'));
+    const items = [...target.querySelectorAll(':scope main > ul > li, main > ul > li')].map((li) => li.textContent ?? '');
+    const at = items.findIndex((t) => t === 'Wolfe-Jam/faf-skills');
+    expect(items[at + 1]).toContain('AGENTS.md');
+  });
+
+  it('a site that is not a GitHub repo gets no repo heading', async () => {
+    run.mockResolvedValue({ ok: true, report });
+    await open();
+    await settle(() => expect(target.querySelectorAll('li').length).toBeGreaterThan(0));
+    expect(target.querySelector('li.group')).toBeNull();
+  });
+});
+

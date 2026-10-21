@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { type DiscoveryReport, type DiscoveryRow, type RowStatus, issues } from '@/core/discovery';
+  import { type DiscoveryReport, type DiscoveryRow, type RowStatus, issues, parseGithubRepo } from '@/core/discovery';
   import { chromeScripting, discoverTab } from './run';
 
   type View = { kind: 'loading' } | { kind: 'error'; reason: string } | { kind: 'done'; report: DiscoveryReport };
@@ -15,12 +15,23 @@
 
   let view = $state<View>({ kind: 'loading' });
 
-  /** The pill: "Published", or "Published · 2 issues" when spec checks failed. */
+  /** The pill: "Published", or "Published · 1 MUST · 2 SHOULD" when spec checks failed. */
   function pill(row: DiscoveryRow): { text: string; warn: boolean } {
     const n = issues(row);
-    const total = n.must + n.should;
-    if (row.status !== 'found' || total === 0) return { text: LABEL[row.status], warn: false };
-    return { text: `${LABEL.found} · ${total} ${total === 1 ? 'issue' : 'issues'}`, warn: n.must > 0 };
+    if (row.status !== 'found' || n.must + n.should === 0) return { text: LABEL[row.status], warn: false };
+    const parts = [n.must && `${n.must} MUST`, n.should && `${n.should} SHOULD`].filter(Boolean);
+    return { text: [LABEL.found, ...parts].join(' · '), warn: n.must > 0 };
+  }
+
+  /** 586 ms; 4.6 s from a second up. */
+  function took(ms: number): string {
+    return ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`;
+  }
+
+  /** On a GitHub repo page, the repo's own rows get a heading so they don't read as github.com's. */
+  function repoName(report: DiscoveryReport): string | null {
+    const gh = parseGithubRepo(report.pageUrl);
+    return gh ? `${gh.owner}/${gh.repo}` : null;
   }
 
   /** Failed first (MUST before SHOULD), then passed, then skipped. */
@@ -63,6 +74,9 @@
   {:else}
     <ul>
       {#each view.report.rows as row (row.id)}
+        {#if row.id === 'agents-md' && repoName(view.report)}
+          <li class="group">{repoName(view.report)}</li>
+        {/if}
         <li class={row.status}>
           <span class="mark" aria-hidden="true">{MARK[row.status]}</span>
           <div class="body">
@@ -95,7 +109,7 @@
       {/each}
     </ul>
     <div class="actions">
-      <span class="timing">{view.report.ms} ms</span>
+      <span class="timing">{took(view.report.ms)}</span>
       <button type="button" onclick={run}>Check again</button>
     </div>
   {/if}
@@ -325,7 +339,21 @@
     font-size: 12px;
   }
 
+  li.group {
+    display: block;
+    padding: 12px 0 4px;
+    border-left: 0;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    word-break: break-all;
+  }
+
   .actions {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    padding-bottom: 2px;
     display: flex;
     justify-content: space-between;
     align-items: center;

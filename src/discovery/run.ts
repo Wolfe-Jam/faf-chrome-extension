@@ -75,6 +75,12 @@ export async function discoverTab(
   scripting: ScriptingApi,
   opts: { webmcpTimeoutMs?: number } = {}
 ): Promise<TabRun> {
+  if (tab.url && /^https:\/\/(chromewebstore\.google\.com|chrome\.google\.com\/webstore)(\/|$)/i.test(tab.url)) {
+    return {
+      ok: false,
+      reason: "Chrome doesn't let extensions check the Chrome Web Store. Open another site and click again.",
+    };
+  }
   if (tab.id === undefined || !isCheckable(tab.url)) {
     return {
       ok: false,

@@ -428,7 +428,7 @@ export async function probeLlmsTxt(ctx: ProbeContext): Promise<DiscoveryRow> {
   }
   // Bytes, not characters: the two differ for any non-ASCII file. Reads are capped, so say so past the cap.
   const bytes = new TextEncoder().encode(f.text).length;
-  const detail = f.truncated ? 'over 1 MiB' : `${bytes} bytes`;
+  const detail = f.truncated ? 'over 1 MiB' : `${bytes.toLocaleString('en-US')} bytes`;
   return row('llms-txt', 'found', { url, detail, ms: f.ms });
 }
 
