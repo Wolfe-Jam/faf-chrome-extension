@@ -152,6 +152,14 @@ describe('popup states', () => {
     expect(target.querySelector('button')?.textContent).toBe('Try again');
   });
 
+  it('a blocked page shows the reason with no retry, since clicking again cannot help', async () => {
+    run.mockResolvedValue({ ok: false, reason: "This page can't be checked.", retry: false });
+    await open();
+    await settle(() => expect(target.querySelector('[role="alert"]')).not.toBeNull());
+    expect(target.querySelector('[role="alert"]')?.textContent).toContain("can't be checked");
+    expect(target.querySelector('button')).toBeNull();
+  });
+
   it('a runner that throws becomes an alert, not a blank popup', async () => {
     run.mockRejectedValue(new Error('Extension context invalidated'));
     await open();

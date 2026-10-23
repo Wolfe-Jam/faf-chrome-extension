@@ -3,7 +3,7 @@
   import { type DiscoveryReport, type DiscoveryRow, type RowStatus, issues, parseGithubRepo } from '@/core/discovery';
   import { chromeScripting, discoverTab } from './run';
 
-  type View = { kind: 'loading' } | { kind: 'error'; reason: string } | { kind: 'done'; report: DiscoveryReport };
+  type View = { kind: 'loading' } | { kind: 'error'; reason: string; retry?: false } | { kind: 'done'; report: DiscoveryReport };
 
   const MARK: Record<RowStatus, string> = { found: '✓', missing: '✗', unreadable: '!', skipped: '–' };
   const LABEL: Record<RowStatus, string> = {
@@ -50,7 +50,7 @@
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const out = await discoverTab(tab ?? {}, chromeScripting);
-      view = out.ok ? { kind: 'done', report: out.report } : { kind: 'error', reason: out.reason };
+      view = out.ok ? { kind: 'done', report: out.report } : { kind: 'error', reason: out.reason, retry: out.retry };
     } catch (e) {
       view = { kind: 'error', reason: e instanceof Error ? e.message : String(e) };
     }
@@ -71,7 +71,9 @@
     <p class="note" role="status">Checking this site…</p>
   {:else if view.kind === 'error'}
     <p class="note" role="alert">{view.reason}</p>
-    <button type="button" onclick={run}>Try again</button>
+    {#if view.retry !== false}
+      <button type="button" onclick={run}>Try again</button>
+    {/if}
   {:else}
     <ul>
       {#each view.report.rows as row (row.id)}

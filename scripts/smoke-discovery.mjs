@@ -177,7 +177,7 @@ try {
   const body = await page.textContent('body');
   check('popup boots as an extension page and shows its name', body.includes('Agent Discovery Check'));
   check('popup shows the byline', body.includes('By James Wolfe, .FAF Creator and AAIF Ambassador'));
-  check('popup on a non-website tab says so, instead of crashing', body.includes('cannot be checked'), body.slice(0, 120));
+  check('popup on a non-website tab says so, instead of crashing', body.includes("can't be checked"), body.slice(0, 120));
   check('popup raised no console or page errors (CSP, bundle)', errors.length === 0, errors.join(' | '));
   const manifest = await page.evaluate(() => chrome.runtime.getManifest());
   check('loaded manifest has activeTab + scripting only, no host access', JSON.stringify([...manifest.permissions].sort()) === '["activeTab","scripting"]' && !manifest.host_permissions, JSON.stringify(manifest.permissions));

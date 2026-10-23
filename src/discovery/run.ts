@@ -5,7 +5,14 @@
 
 import { type DiscoveryReport, type WebMcpTool, probeWebMcp } from '@/core/discovery';
 
-export type TabRun = { ok: true; report: DiscoveryReport } | { ok: false; reason: string };
+/** `retry: false`: clicking again on the same page can't help (Chrome blocks it), so the popup hides Try again. */
+export type TabRun =
+  | { ok: true; report: DiscoveryReport }
+  | { ok: false; reason: string; retry?: false };
+
+/** What does work, for the two pages Chrome won't let the extension read. */
+const WORKS_ON =
+  'It works on any website (http or https), and on any public GitHub repo it also checks AGENTS.md and project.faf.';
 
 /** The slice of chrome.scripting this module uses; tests pass a fake. */
 export interface ScriptingApi {
@@ -81,14 +88,15 @@ export async function discoverTab(
   ) {
     return {
       ok: false,
-      reason:
-        "Chrome doesn't let extensions check the Chrome Web Store. Open another site and click again.",
+      reason: `Chrome doesn't let extensions check the Chrome Web Store. ${WORKS_ON}`,
+      retry: false,
     };
   }
   if (tab.id === undefined || !isCheckable(tab.url)) {
     return {
       ok: false,
-      reason: 'This page cannot be checked. Open a website (http or https) and click again.',
+      reason: `This page can't be checked. ${WORKS_ON}`,
+      retry: false,
     };
   }
   const tabId = tab.id;
