@@ -77,6 +77,32 @@ describe('discoverTab', () => {
     expect(calls).toHaveLength(0);
   });
 
+  it('explains that Chrome blocks extensions on the Chrome Web Store', async () => {
+    const { api, calls } = fakeScripting({});
+    const out = await discoverTab(
+      { id: 1, url: 'https://chromewebstore.google.com/detail/x/abc' },
+      api
+    );
+    expect(out.ok).toBe(false);
+    expect(calls).toHaveLength(0);
+    if (!out.ok) {
+      expect(out.reason).toContain("Chrome doesn't let extensions check the Chrome Web Store");
+      expect(out.reason).toContain('any public GitHub repo');
+      expect(out.retry).toBe(false);
+    }
+  });
+
+  it('on a page it cannot read, says where it does work, with no retry', async () => {
+    const { api } = fakeScripting({});
+    const out = await discoverTab({ id: 1, url: 'chrome://newtab/' }, api);
+    expect(out.ok).toBe(false);
+    if (!out.ok) {
+      expect(out.reason).toContain('It works on any website (http or https)');
+      expect(out.reason).toContain('AGENTS.md and project.faf');
+      expect(out.retry).toBe(false);
+    }
+  });
+
   it('refuses a tab with no id', async () => {
     const { api } = fakeScripting({});
     expect((await discoverTab({ url: 'https://example.com' }, api)).ok).toBe(false);

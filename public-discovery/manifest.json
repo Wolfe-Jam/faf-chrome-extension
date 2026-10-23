@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Agent Discovery Check",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Checks the site you are on for an AI Catalog, MCP Server Card, llms.txt and WebMCP tools. Reads a site only when you click.",
   "icons": {
     "16": "icons/social-logo-16.png",
