@@ -14,6 +14,7 @@
   };
 
   let view = $state<View>({ kind: 'loading' });
+  const BYLINE = 'By James Wolfe, .FAF Creator and AAIF Ambassador';
 
   /** The pill: "Published", or "Published · 1 MUST · 2 SHOULD" when spec checks failed. */
   function pill(row: DiscoveryRow): { text: string; warn: boolean } {
@@ -108,13 +109,18 @@
         </li>
       {/each}
     </ul>
-    <div class="actions">
-      <span class="timing">{took(view.report.ms)}</span>
-      <button type="button" onclick={run}>Check again</button>
+    <div class="bottom">
+      <div class="actions">
+        <span class="timing">{took(view.report.ms)}</span>
+        <button type="button" onclick={run}>Check again</button>
+      </div>
+      <footer>{BYLINE}</footer>
     </div>
   {/if}
 
-  <footer>By James Wolfe, .FAF Creator and AAIF Ambassador</footer>
+  {#if view.kind !== 'done'}
+    <footer>{BYLINE}</footer>
+  {/if}
 </main>
 
 <style>
@@ -349,11 +355,15 @@
     word-break: break-all;
   }
 
-  .actions {
+  /* Timing, Check again and the byline stay in view when the results scroll. */
+  .bottom {
     position: sticky;
     bottom: 0;
     background: var(--bg);
     padding-bottom: 2px;
+  }
+
+  .actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
